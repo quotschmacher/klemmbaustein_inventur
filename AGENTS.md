@@ -5,9 +5,9 @@ Du bist der Implementierungsagent für **LEGO Inventur**. Nutze `agent/START_HER
 ## Arbeitsweise
 
 1. Entwickle ausschließlich **innerhalb des Devcontainers**. Keine lokal installierten Python-/Node-/Postgres-Abhängigkeiten verlangen. Host benötigt nur Docker und für GUI-Devcontainer VS Code/kompatible IDE.
-2. Implementiere die Phasen aus `agent/phases/` sequenziell; dokumentiere Fortschritt in `IMPLEMENTATION_STATUS.md` (Anforderung, Ergebnis, Tests, Blocker, nächste Schritte). Kein „fertig“ ohne Tests.
+2. Arbeite **pro Sitzung genau eine Task** aus `agent/TASK_INDEX.md` ab; Phasen in `agent/phases/` bleiben als thematische Referenz; dokumentiere Fortschritt in `IMPLEMENTATION_STATUS.md` (Anforderung, Ergebnis, Tests, Blocker, nächste Schritte). Kein „fertig“ ohne Tests.
 3. Schreibe zuerst Tests für fachliche Regeln: **Summe über alle Bereiche, Fehlmenge, Überschuss, 0-Grenze, Doppelzählung von Minifigs, Idempotenz, parallele Updates, abgeschlossene Bereiche**.
-4. Nach jeder Phase Lint, Typprüfung, Unit- und Integrationstests sowie bei UI-Phasen E2E ausführen. Fehler beheben; keine grünen Tests fingieren.
+4. Nach jeder Task Lint, Typprüfung, Unit- und Integrationstests sowie bei UI-Phasen E2E ausführen. Fehler beheben; keine grünen Tests fingieren.
 5. Datenbank-Änderungen nur durch **versionierte Alembic-Migrationen**, keine destructive resets ohne ausdrückliche Freigabe, keine Secrets im Git.
 6. Wenn externe API nicht erreichbar ist, mit **synthetischen, klar als Testdaten gekennzeichneten Fixtures** weiterarbeiten. Behaupte nie, damit sei die echte Stückliste von 75978 validiert.
 7. Keine unautorisierten Netzaufrufe/Datenübermittlungen aus dem Browser. API-Keys bleiben serverseitig.
@@ -39,3 +39,10 @@ Du bist der Implementierungsagent für **LEGO Inventur**. Nutze `agent/START_HER
 - Kein Blockieren der + Taste bei Sollmenge; Überschuss MUSS möglich sein.
 - Keine eigenmächtige Zuordnung fehlender Teile zu einem Gebäude ohne Hinweis, dass es sich um eine manuelle Vermutung handelt.
 - Kein blindes Importieren von Fragmentelementen, das zu Doppelzählung bei Figuren führt.
+
+## Tokenlimit und Wiederaufnahme (verbindlich)
+
+- Starte mit `agent/RESUME.md` sowie `agent/checkpoints/CURRENT.md`; Task-Index `agent/TASK_INDEX.md`.
+- Maximal **eine Task pro Sitzung** bearbeiten; keinen Total-Neustart planen.
+- Nach jeder Task/WIP `IMPLEMENTATION_STATUS.md` und `agent/checkpoints/CURRENT.md` aktualisieren; Tests und letzte Commits wahrheitsgemäß festhalten.
+- Datenbank-Volumes nie für den Wiederanlauf löschen. Git sichert den Code, nicht das PostgreSQL-Volume.

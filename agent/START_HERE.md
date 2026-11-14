@@ -1,29 +1,11 @@
-# Startauftrag an Hermes Agent
+# Startauftrag an Hermes Agent – tokenbegrenzte Ausführung
 
-Du befindest dich im Repository `lego-inventur-hermes`. **Implementiere** die in `AGENTS.md` und `docs/` spezifizierte LEGO-Inventur-App; es handelt sich nicht um eine Aufforderung, weitere Spezifikationen zu schreiben.
+Du befindest dich im Repository `lego-inventur-hermes`. Implementiere die Anwendung aus `AGENTS.md` und `docs/`. **Arbeite pro Sitzung genau eine Task** aus `agent/TASK_INDEX.md` ab. Beginne mit `agent/tasks/01-*.md`. Lies vor Arbeitsbeginn `agent/RESUME.md` und `agent/checkpoints/CURRENT.md`.
 
-## Ziel
+Das Projekt verwendet FastAPI + React/TypeScript + PostgreSQL, Entwicklung im Devcontainer und Betrieb über Docker Compose. Es braucht fünf unabhängige Zählbereiche, globale Fehlmengen und Überschüsse, +/− Buttons und Farbfilter auf exakt eine Farbe.
 
-Ein echtes, dauerhaftes Web-Tool zum Zählen von LEGO 75978 (und später anderen Sets), mit einer einzigen Soll-Inventarliste und **fünf separat gespeicherten Ist-Zählbereichen** (Anleitungen 1–4 und Minifiguren). Erkenne **globale Fehlmengen und Überschüsse** pro Teilenummer/Farbe; biete Sortierung nach Farbe und den Filter **nur eine Farbe anzeigen**; sichere alles in PostgreSQL; liefere eine deutschsprachige UI mit großen +/− Buttons.
+**Nach jeder Task:** Tests tatsächlich ausführen, `IMPLEMENTATION_STATUS.md` und `agent/checkpoints/CURRENT.md` aktualisieren; bei verfügbarem Git nur die zugehörigen Änderungen committen. Bei Restzeit-/Tokenknappheit Fortschritt unter WIP protokollieren. Keine Datenbank-Resets oder Löschbefehle.
 
-## Verbindliche Technik
+**Bei neuer Sitzung:** `agent/RESUME.md` als Startauftrag verwenden.
 
-- Entwickeln: Devcontainer auf Basis `compose.dev.yaml`; keine Host-Python-/Node-/Postgres-Installation.
-- Produktion: `compose.yaml` startet Web, API, DB; einzig Web-Port an `127.0.0.1:8080` veröffentlicht; DB-Volume persistent.
-- Backend: Python/FastAPI/SQLAlchemy/Alembic/PostgreSQL.
-- Frontend: React/TypeScript/Vite; später durch Nginx ausgeliefert.
-- Datenquelle: Rebrickable serverseitig mit API-Key oder CSV, Minifiguren ausdrücklich ohne Doppelzählung.
-- Allgemeine Geschäfts- und Testregeln aus `docs/specs/03-business-rules.md` und `docs/specs/04-acceptance-tests.md`.
-
-## Ausführung
-
-1. Lies `README.md`, alle `docs/specs/`, `docs/architecture/`, `backend/AGENTS.md`, `frontend/AGENTS.md`.
-2. Prüfe den Devcontainer/Compose und verbessere nötigenfalls die Konfiguration.
-3. Arbeite `agent/phases/01-setup.md` bis `05-hardening.md` ab. **Nicht nach Planungsphase abbrechen.**
-4. Erstelle `IMPLEMENTATION_STATUS.md` und aktualisiere ihn nach jedem Meilenstein mit ausgeführten Befehlen, Testergebnissen und offenen Punkten.
-5. Falls Rebrickable-Zugangsdaten fehlen, baue CSV-Import und alle Features gegen explizite Demo-Fixtures. Echte LEGO-75978-Vollständigkeit erst nach erfolgreichem Import als geprüft kennzeichnen.
-6. Am Ende liefere die wirklich ausführbaren Docker-Befehle, dokumentiere Funktionstests und bekannte Einschränkungen.
-
-## Fertig-Kriterium
-
-Nicht „fertig“ melden, bevor die End-to-End-Akzeptanzfälle grün sind und die Produktions-Compose-Konfiguration vom leeren Volume bis zur funktionierenden App getestet wurde.
+Nicht nur planen: Task 01 implementieren und validieren.

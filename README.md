@@ -52,3 +52,13 @@ compose.yaml                Produktions-Zielkonfiguration (erst nach Implementie
 ## Lizenz/Compliance
 
 Keine LEGO-/Rebrickable-Bilder oder Daten ohne Beachtung der jeweiligen Bedingungen massenhaft einbinden. Anwendungsname und Design eigenständig; kein LEGO-/BrickTally-Branding kopieren.
+
+## Entwicklung in kurzen Hermes-Sitzungen
+
+1. Für einen neuen Projektstart `agent/START_HERE.md` an Hermes geben.
+2. Immer **nur eine Task** aus `agent/TASK_INDEX.md` implementieren und testen lassen.
+3. Nach Tokenlimit eine neue Hermes-Sitzung beginnen und `agent/RESUME.md` übergeben.
+4. Übergabe steht in `agent/checkpoints/CURRENT.md`; Details in `IMPLEMENTATION_STATUS.md`.
+5. Git-Commits sichern Codefortschritt; PostgreSQL-Nutzdaten separat sichern. Keine Volumes löschen.
+
+Die Aufgaben sind in 10 kleine Module aufgeteilt und verweisen auf die ursprünglichen 5 Phasen und vollständigen Specs.
