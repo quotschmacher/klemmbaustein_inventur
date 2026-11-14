@@ -1,0 +1,24 @@
+{
+  "name": "LEGO Inventur Dev (Python + Node + PostgreSQL)",
+  "dockerComposeFile": ["../compose.dev.yaml"],
+  "service": "workspace",
+  "runServices": ["db", "workspace"],
+  "workspaceFolder": "/workspace",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [8000, 5173],
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ms-azuretools.vscode-docker",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode"
+      ]
+    }
+  },
+  "remoteUser": "vscode"
+}

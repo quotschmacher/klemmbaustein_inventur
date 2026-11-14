@@ -1,0 +1,5 @@
+part_num,color_id,color_name,quantity,inventory_class,part_name,source_type,source_ref
+3001,72,Light Bluish Gray,10,required,Brick 2 x 4,set_regular,test
+3001,5,Red,4,required,Brick 2 x 4,set_regular,test
+3069b,72,Light Bluish Gray,3,required,Tile 1 x 2,set_regular,test
+3001,72,Light Bluish Gray,2,spare,Brick 2 x 4,spare,test
