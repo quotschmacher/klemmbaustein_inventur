@@ -17,7 +17,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 | Task | Status | Nachgewiesene Tests | Commit |
 |---|---|---|---|
 | 01 – Devcontainer und Docker-Start | DONE | Backend: 1 pytest; Frontend: 1 Vitest; Ruff, ESLint, TypeScript/Vite-Build; `docker compose up -d --build`, alle Dienste healthy, Root und `/api/health` auf Port 8080 | `952ff2f task-01: Devcontainer und Docker-Start` |
-| 02 – PostgreSQL-Datenmodell und Migrationen | DONE | 4 pytest, Ruff, `alembic upgrade head`; frische PostgreSQL-Testdatenbank und Produktions-Migrationsservice auf Revision `d5a0b1802099` geprüft | – |
+| 02 – PostgreSQL-Datenmodell und Migrationen | DONE | 4 pytest, Ruff, `alembic upgrade head`; frische PostgreSQL-Testdatenbank und Produktions-Migrationsservice auf Revision `d5a0b1802099` geprüft | `e3c245a task-02: PostgreSQL-Datenmodell und Migrationen` |
 | 03 – Sets, Inventarimport und Quellen | TODO | noch keine | – |
 | 04 – Bereiche und Zähl-API | TODO | noch keine | – |
 | 05 – Gesamtsummen, Fehlmengen und Überschüsse | TODO | noch keine | – |
