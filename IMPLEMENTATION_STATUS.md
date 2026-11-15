@@ -16,7 +16,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 
 | Task | Status | Nachgewiesene Tests | Commit |
 |---|---|---|---|
-| 01 – Devcontainer und Docker-Start | WIP | Backend: 1 pytest; Frontend: 1 Vitest; Ruff, ESLint, TypeScript/Vite-Build; Compose-Stack/Health auf temporärem Host-Port 18080 | Commit nach Status-/Checkpoint-Update; exakte 8080-Abnahme durch fremde Portbelegung offen |
+| 01 – Devcontainer und Docker-Start | WIP | Backend: 1 pytest; Frontend: 1 Vitest; Ruff, ESLint, TypeScript/Vite-Build; Compose-Stack/Health auf temporärem Host-Port 18080 | `952ff2f task-01: Devcontainer und Docker-Start`; exakte 8080-Abnahme durch fremde Portbelegung offen |
 | 02 – PostgreSQL-Datenmodell und Migrationen | TODO | noch keine | – |
 | 03 – Sets, Inventarimport und Quellen | TODO | noch keine | – |
 | 04 – Bereiche und Zähl-API | TODO | noch keine | – |
