@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lego-inventur-api"
+version = "0.1.0"
+description = "API für die LEGO-Inventur"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "fastapi>=0.115,<0.116",
+  "uvicorn[standard]>=0.30,<0.31",
+  "psycopg[binary]>=3.2,<3.3",
+]
+
+[project.optional-dependencies]
+dev = [
+  "httpx>=0.28,<0.29",
+  "pytest>=8.3,<8.4",
+  "ruff>=0.6,<0.7",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+filterwarnings = [
+  "ignore:The anyio\\.abc\\.BlockingPortal alias is deprecated:DeprecationWarning:starlette\\.testclient",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.setuptools.packages.find]
+include = ["app*"]

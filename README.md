@@ -16,6 +16,30 @@ Ziel: LEGO-Sets auf Vollständigkeit prüfen. Eine zentrale, verifizierte Invent
 6. In Hermes den Inhalt von `agent/START_HERE.md` als Startauftrag verwenden. Meilensteine unter `agent/phases/` nacheinander umsetzen.
 7. Der Devcontainer startet **nur Workspace und PostgreSQL**; die späteren API-/UI-Services sind durch Hermes nach Spezifikation zu entwickeln. Die fertige Anwendung muss mit `docker compose up -d --build` unter `http://localhost:8080` laufen.
 
+## Verifizierter Entwicklungs- und Startablauf (Task 01)
+
+Die folgenden Befehle werden ausschließlich im Devcontainer beziehungsweise über Docker Compose ausgeführt. Sie benötigen keine lokale Python-, Node- oder PostgreSQL-Installation:
+
+```bash
+# Devcontainer/Workspace mit PostgreSQL starten
+docker compose -f compose.dev.yaml up -d --build
+
+# Im Workspace Abhängigkeiten installieren und die Qualitätsprüfungen ausführen
+docker compose -f compose.dev.yaml exec workspace python -m pip install -e '/workspace/backend[dev]'
+docker compose -f compose.dev.yaml exec workspace npm ci --prefix /workspace/frontend
+docker compose -f compose.dev.yaml exec workspace sh -lc 'cd /workspace/backend && ruff check . && pytest -p no:cacheprovider -q'
+docker compose -f compose.dev.yaml exec workspace sh -lc 'npm test --prefix /workspace/frontend && npm run lint --prefix /workspace/frontend && npm run build --prefix /workspace/frontend'
+
+# Produktiv-Compose lokal starten (nur Web ist veröffentlicht)
+docker compose config
+docker compose up -d --build
+docker compose ps
+curl -fsS http://localhost:8080/
+curl -fsS http://localhost:8080/api/health
+```
+
+`docker compose down` stoppt die Container, erhält jedoch das benannte Volume `lego-inventur_pgdata`. Nie `docker compose down -v` verwenden, wenn Daten erhalten bleiben sollen.
+
 ## Struktur
 
 ```

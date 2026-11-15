@@ -6,9 +6,7 @@
   "workspaceFolder": "/workspace",
   "shutdownAction": "stopCompose",
   "forwardPorts": [8000, 5173],
-  "features": {
-    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
-  },
+  "postCreateCommand": "python -m pip install -e '/workspace/backend[dev]' && npm ci --prefix /workspace/frontend",
   "customizations": {
     "vscode": {
       "extensions": [
