@@ -16,6 +16,17 @@ services:
       timeout: 3s
       retries: 15
     networks: [internal]
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
   api:
     build:
       context: ./backend
@@ -25,8 +36,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
       REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY:-}
     depends_on:
-      db:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health')"]
       interval: 10s
