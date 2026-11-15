@@ -5,7 +5,7 @@
 | Phase | Status | Testergebnisse | Offene Punkte |
 |---|---|---|---|
 | 1 – Setup/Schema | abgeschlossen | Task 01 und 02 abgenommen: Compose, Healthchecks, SQLAlchemy/Alembic-Schema und produktive Migration | keine |
-| 2 – Inventarimport | offen | nicht durchgeführt | API/CSV, Figuren, Spares |
+| 2 – Inventarimport | WIP | CSV-Import-API: 5 Backend-Tests erfolgreich | Rebrickable-Import, Quellenmetadaten und vollständige Abnahme |
 | 3 – Zählen/UI | offen | nicht durchgeführt | 5 Sessions, +/- und Farbfokus, Überschuss |
 | 4 – Nachbestellung | offen | nicht durchgeführt | CSV/JSON/XML, Zuordnung |
 | 5 – Härtung/Abnahme | offen | nicht durchgeführt | Backup/Restore, End-to-End |
@@ -18,7 +18,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 |---|---|---|---|
 | 01 – Devcontainer und Docker-Start | DONE | Backend: 1 pytest; Frontend: 1 Vitest; Ruff, ESLint, TypeScript/Vite-Build; `docker compose up -d --build`, alle Dienste healthy, Root und `/api/health` auf Port 8080 | `952ff2f task-01: Devcontainer und Docker-Start` |
 | 02 – PostgreSQL-Datenmodell und Migrationen | DONE | 4 pytest, Ruff, `alembic upgrade head`; frische PostgreSQL-Testdatenbank und Produktions-Migrationsservice auf Revision `d5a0b1802099` geprüft | `e3c245a task-02: PostgreSQL-Datenmodell und Migrationen` |
-| 03 – Sets, Inventarimport und Quellen | TODO | noch keine | – |
+| 03 – Sets, Inventarimport und Quellen | WIP | synthetischer CSV-Import: Projektanlage, Pflicht-/Spare-Trennung, Idempotenz | Rebrickable und produktive Compose-Abnahme |
 | 04 – Bereiche und Zähl-API | TODO | noch keine | – |
 | 05 – Gesamtsummen, Fehlmengen und Überschüsse | TODO | noch keine | – |
 | 06 – Zähloberfläche und Farbfilter | TODO | noch keine | – |
