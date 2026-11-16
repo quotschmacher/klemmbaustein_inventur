@@ -33,3 +33,18 @@ def test_csv_import_is_idempotent_and_keeps_spares_separate() -> None:
         "required",
         "spare",
     }
+
+
+def test_rebrickable_import_requires_a_server_side_key(monkeypatch) -> None:
+    monkeypatch.delenv("REBRICKABLE_API_KEY", raising=False)
+    client = TestClient(app)
+    project_response = client.post(
+        "/api/v1/projects",
+        json={"set_num": f"synthetic-{uuid4()}", "label": "Ohne API-Schlüssel"},
+    )
+
+    response = client.post(
+        f"/api/v1/projects/{project_response.json()['data']['id']}/import/rebrickable"
+    )
+
+    assert response.status_code == 503

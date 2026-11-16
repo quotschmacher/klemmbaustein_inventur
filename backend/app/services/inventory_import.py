@@ -39,6 +39,7 @@ class CsvRow:
     image_url: str | None
     source_type: str
     source_ref: str
+    provenance: tuple[tuple[str, str, int], ...] = ()
 
 
 def parse_csv_inventory(content: bytes) -> list[CsvRow]:
@@ -89,11 +90,30 @@ def parse_csv_inventory(content: bytes) -> list[CsvRow]:
 def import_csv_inventory(session: Session, project: Project, content: bytes) -> tuple[bool, int]:
     rows = parse_csv_inventory(content)
     checksum = hashlib.sha256(content).hexdigest()
+    return import_inventory_rows(
+        session,
+        project,
+        provider="csv",
+        source_revision=checksum,
+        checksum=checksum,
+        rows=rows,
+    )
+
+
+def import_inventory_rows(
+    session: Session,
+    project: Project,
+    *,
+    provider: str,
+    source_revision: str,
+    checksum: str,
+    rows: list[CsvRow],
+) -> tuple[bool, int]:
     existing = session.scalar(
         select(InventorySnapshot).where(
             InventorySnapshot.set_id == project.set_id,
-            InventorySnapshot.provider == "csv",
-            InventorySnapshot.source_revision == checksum,
+            InventorySnapshot.provider == provider,
+            InventorySnapshot.source_revision == source_revision,
         )
     )
     if existing is not None:
@@ -108,8 +128,8 @@ def import_csv_inventory(session: Session, project: Project, content: bytes) -> 
 
     snapshot = InventorySnapshot(
         set_id=project.set_id,
-        provider="csv",
-        source_revision=checksum,
+        provider=provider,
+        source_revision=source_revision,
         validation_status=SnapshotValidationStatus.VALID,
         checksum=checksum,
     )
@@ -118,18 +138,18 @@ def import_csv_inventory(session: Session, project: Project, content: bytes) -> 
 
     for row in rows:
         color = session.scalar(
-            select(Color).where(Color.provider == "csv", Color.provider_color_id == row.color_id)
+            select(Color).where(Color.provider == provider, Color.provider_color_id == row.color_id)
         )
         if color is None:
-            color = Color(provider="csv", provider_color_id=row.color_id, name=row.color_name)
+            color = Color(provider=provider, provider_color_id=row.color_id, name=row.color_name)
             session.add(color)
             session.flush()
         part = session.scalar(
-            select(PartCatalog).where(PartCatalog.provider == "csv", PartCatalog.part_num == row.part_num)
+            select(PartCatalog).where(PartCatalog.provider == provider, PartCatalog.part_num == row.part_num)
         )
         if part is None:
             part = PartCatalog(
-                provider="csv",
+                provider=provider,
                 part_num=row.part_num,
                 name=row.part_name,
                 image_url=row.image_url,
@@ -145,14 +165,16 @@ def import_csv_inventory(session: Session, project: Project, content: bytes) -> 
         )
         session.add(requirement)
         session.flush()
-        session.add(
-            InventoryProvenance(
-                requirement_id=requirement.id,
-                source_type=row.source_type,
-                source_ref=row.source_ref,
-                quantity=row.quantity,
+        provenance = row.provenance or ((row.source_type, row.source_ref, row.quantity),)
+        for source_type, source_ref, quantity in provenance:
+            session.add(
+                InventoryProvenance(
+                    requirement_id=requirement.id,
+                    source_type=source_type,
+                    source_ref=source_ref,
+                    quantity=quantity,
+                )
             )
-        )
 
     project.inventory_snapshot_id = snapshot.id
     project.status = ProjectStatus.IN_PROGRESS

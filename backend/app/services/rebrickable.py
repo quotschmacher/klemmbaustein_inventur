@@ -45,3 +45,16 @@ class RebrickableClient:
             next_url = urljoin(str(self._client.base_url), next_value) if next_value else None
 
         return results
+
+    def fetch_object(self, path: str) -> dict[str, object]:
+        response = self._client.get(path, headers=self._headers, timeout=10.0)
+        if response.status_code == 429:
+            raise RebrickableImportError("Rebrickable hat das Rate-Limit erreicht.")
+        try:
+            response.raise_for_status()
+            payload = response.json()
+        except (httpx.HTTPStatusError, ValueError) as error:
+            raise RebrickableImportError("Rebrickable lieferte keine vollständigen Set-Daten.") from error
+        if not isinstance(payload, dict):
+            raise RebrickableImportError("Rebrickable lieferte keine vollständigen Set-Daten.")
+        return payload

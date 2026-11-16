@@ -3,6 +3,7 @@ import os
 from uuid import UUID
 
 from fastapi import FastAPI, File, HTTPException, Response, UploadFile, status
+import httpx
 from pydantic import BaseModel, Field
 from psycopg import connect
 from psycopg.errors import OperationalError
@@ -11,6 +12,8 @@ from sqlalchemy import select
 from app.db.models import Color, InventoryRequirement, PartCatalog, Project
 from app.db.session import create_session_factory
 from app.services.inventory_import import CsvImportError, create_project, import_csv_inventory
+from app.services.rebrickable import RebrickableClient, RebrickableImportError
+from app.services.rebrickable_project_import import RebrickableProjectImporter
 
 app = FastAPI(title="LEGO Inventur API", version="0.1.0")
 
@@ -66,6 +69,30 @@ async def import_csv_route(
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projekt nicht gefunden.")
             imported, requirements = import_csv_inventory(session, project, content)
     except CsvImportError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+
+    response.status_code = status.HTTP_201_CREATED if imported else status.HTTP_200_OK
+    return {"data": {"requirements": requirements, "imported": imported}}
+
+
+@app.post("/api/v1/projects/{project_id}/import/rebrickable")
+def import_rebrickable_route(project_id: UUID, response: Response) -> dict[str, dict[str, int | bool]]:
+    api_key = os.environ.get("REBRICKABLE_API_KEY", "")
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="REBRICKABLE_API_KEY ist nicht konfiguriert.",
+        )
+    factory = create_session_factory()
+    try:
+        with httpx.Client(base_url="https://rebrickable.com", follow_redirects=False) as http_client:
+            importer = RebrickableProjectImporter(RebrickableClient(api_key, http_client))
+            with factory.begin() as session:
+                project = session.get(Project, project_id)
+                if project is None:
+                    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projekt nicht gefunden.")
+                imported, requirements = importer.import_project(session, project)
+    except (CsvImportError, RebrickableImportError) as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
 
     response.status_code = status.HTTP_201_CREATED if imported else status.HTTP_200_OK
