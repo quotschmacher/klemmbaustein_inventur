@@ -44,6 +44,31 @@ function App() {
     }
   }
 
+  async function importFromRebrickable() {
+    setMessage("Rebrickable-Import läuft …");
+    try {
+      const projectResponse = await fetch("/api/v1/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ set_num: setNumber, label }),
+      });
+      const project = await projectResponse.json();
+      if (!projectResponse.ok) throw new Error();
+      const importResponse = await fetch(`/api/v1/projects/${project.data.id}/import/rebrickable`, {
+        method: "POST",
+      });
+      const imported = await importResponse.json();
+      if (!importResponse.ok) throw new Error(imported.detail);
+      const inventoryResponse = await fetch(`/api/v1/projects/${project.data.id}/inventory`);
+      const inventory = await inventoryResponse.json();
+      if (!inventoryResponse.ok) throw new Error();
+      setItems(inventory.data.items);
+      setMessage(`${imported.data.requirements} Positionen wurden von Rebrickable importiert.`);
+    } catch (error) {
+      setMessage(error instanceof Error && error.message ? error.message : "Der Rebrickable-Import ist fehlgeschlagen.");
+    }
+  }
+
   return (
     <main className="startseite">
       <section aria-labelledby="seitentitel">
@@ -59,6 +84,7 @@ function App() {
           <label htmlFor="inventory-file">CSV-Inventar</label>
           <input id="inventory-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
           <button type="submit">Inventar importieren</button>
+          <button type="button" onClick={importFromRebrickable}>Von Rebrickable importieren</button>
         </form>
         <p aria-live="polite">{message}</p>
         {items.length > 0 && <table><thead><tr><th>Teil</th><th>Farbe</th><th>Soll</th><th>Klasse</th></tr></thead><tbody>{items.map((item) => <tr key={`${item.part_num}-${item.color_name}-${item.inventory_class}`}><td>{item.part_num} – {item.part_name}</td><td>{item.color_name}</td><td>{item.expected_qty}</td><td>{item.inventory_class === "spare" ? "Ersatzteil" : "Pflichtteil"}</td></tr>)}</tbody></table>}
