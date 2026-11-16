@@ -40,6 +40,16 @@ curl -fsS http://localhost:8080/api/health
 
 `docker compose down` stoppt die Container, erhält jedoch das benannte Volume `lego-inventur_pgdata`. Nie `docker compose down -v` verwenden, wenn Daten erhalten bleiben sollen.
 
+## Lokale Aktualisierung nach Git-Commits
+
+Dieses Repository enthält einen versionierten Post-Commit-Hook. Einmal pro Clone aktivieren:
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Danach führt jeder lokale Commit automatisch `docker compose up -d --build` aus und stellt die aktualisierten Container unter `http://localhost:8080` bereit.
+
 ## Struktur
 
 ```

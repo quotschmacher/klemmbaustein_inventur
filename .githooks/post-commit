@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+# Lokaler Git-Hook: nach jedem Commit die Docker-Compose-Anwendung aktualisieren.
+set -u
+
+repo_root="$(git rev-parse --show-toplevel)" || exit 0
+cd "$repo_root" || exit 0
+
+printf '%s\n' '[post-commit] Aktualisiere LEGO Inventur über Docker Compose …'
+docker compose up -d --build || printf '%s\n' '[post-commit] Docker-Update fehlgeschlagen; siehe obige Ausgabe.' >&2
