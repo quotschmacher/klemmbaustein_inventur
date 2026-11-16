@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 1 – Setup/Schema | abgeschlossen | Task 01 und 02 abgenommen: Compose, Healthchecks, SQLAlchemy/Alembic-Schema und produktive Migration | keine |
 | 2 – Inventarimport | abgeschlossen | CSV-/Rebrickable-Import, Quellen-/Provenance-Daten und lokale Cache-Wiederverwendung abgenommen | keine |
-| 3 – Zählen/UI | offen | nicht durchgeführt | 5 Sessions, +/- und Farbfokus, Überschuss |
+| 3 – Zählen/UI | WIP | Task 04: Bereiche und Zähl-API mit 18 Backend-Tests abgenommen | Zähloberfläche und Farbfilter in Task 06; globale Differenzen in Task 05 |
 | 4 – Nachbestellung | offen | nicht durchgeführt | CSV/JSON/XML, Zuordnung |
 | 5 – Härtung/Abnahme | offen | nicht durchgeführt | Backup/Restore, End-to-End |
 
@@ -19,7 +19,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 | 01 – Devcontainer und Docker-Start | DONE | Backend: 1 pytest; Frontend: 1 Vitest; Ruff, ESLint, TypeScript/Vite-Build; `docker compose up -d --build`, alle Dienste healthy, Root und `/api/health` auf Port 8080 | `952ff2f task-01: Devcontainer und Docker-Start` |
 | 02 – PostgreSQL-Datenmodell und Migrationen | DONE | 4 pytest, Ruff, `alembic upgrade head`; frische PostgreSQL-Testdatenbank und Produktions-Migrationsservice auf Revision `d5a0b1802099` geprüft | `e3c245a task-02: PostgreSQL-Datenmodell und Migrationen` |
 | 03 – Sets, Inventarimport und Quellen | DONE | 14 Backend-Tests; Frontend-Test/Lint/Build; Alembic head; echte lokale Rebrickable-UI-Abnahme mit Cache und Proxy-Timeoutschutz | `933374b fix: Rebrickable-Import ohne Proxy-Timeout` |
-| 04 – Bereiche und Zähl-API | TODO | noch keine | – |
+| 04 – Bereiche und Zähl-API | DONE | 18 Backend-Tests; +/−/Direkteingabe, Idempotenz, Revision, Paralleltest und abgeschlossene Bereiche geprüft; Live-API-Smoketest erfolgreich | `f0c47b8 task-04: Bereiche und Zähl-API` |
 | 05 – Gesamtsummen, Fehlmengen und Überschüsse | TODO | noch keine | – |
 | 06 – Zähloberfläche und Farbfilter | TODO | noch keine | – |
 | 07 – Gesamtübersicht und Abschlussworkflow | TODO | noch keine | – |
@@ -56,3 +56,11 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - Tests und Abnahme: `ruff check .`, 14 Backend-Tests, `alembic upgrade head`/`current` auf `8e64fb2d1a11`, Frontend-Test/ESLint/Vite-Build, produktive Container und `/api/health` erfolgreich. Der Nutzer bestätigte den erfolgreichen lokalen Rebrickable-Import nach Cache-/Timeoutkorrektur.
 - Offene Risiken: Kein automatischer Provider-Refresh; ein späterer expliziter Aktualisierungsworkflow muss Cache-Invalidierung und Rate-Limit berücksichtigen.
 - Nächste Task: 04 – Bereiche und Zähl-API.
+
+## Task 04 – 16. November 2026
+
+- Ergebnis: Neue Projekte erhalten fünf Pflichtbereiche `Anleitung 1` bis `Anleitung 4` und `Minifiguren`. Die API kann Bereiche lesen, ergänzen und ändern (Name, Reihenfolge, Pflichtstatus, Abschlussstatus).
+- Zähl-API: `POST adjust` für +/− und `PUT` für Direkteingabe persistieren `count_balances` und unveränderliche `count_events` atomar. Negative Mengen werden abgewiesen, + über Soll bleibt möglich, Wiederholung derselben Mutation bleibt idempotent und Direkteingaben erkennen veraltete Revisionen.
+- Parallelität: Die Bilanz wird per PostgreSQL-Upsert und `FOR UPDATE` gesperrt; zwei parallele +1-Anfragen mit verschiedenen Mutation-UUIDs wurden ohne Lost Update getestet.
+- Tests und Abnahme: `ruff check .`, 18 Backend-Tests und Alembic head erfolgreich. Im laufenden Compose-Stack wurde Projekt → CSV-Import → Standardbereich → +1 über den öffentlichen Reverse Proxy geprüft; Antwort enthielt `session_quantity=1`, `global_quantity=1`.
+- Nächste Task: 05 – Gesamtsummen, Fehlmengen und Überschüsse.
