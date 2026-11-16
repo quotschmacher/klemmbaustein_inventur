@@ -28,6 +28,7 @@ from app.services.reconciliation import ReconciliationError, difference_items, p
 from app.services.replacements import (
     ReplacementError,
     book_replacement,
+    create_combined_replacement_order,
     create_replacement,
     replacement_item_data,
     replacement_items,
@@ -71,6 +72,11 @@ class CountSetRequest(BaseModel):
 class ReplacementCreateRequest(BaseModel):
     requirement_id: UUID
     qty_ordered: int = Field(ge=1, le=10000)
+    target_session_id: UUID | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class CombinedReplacementCreateRequest(BaseModel):
     target_session_id: UUID | None = None
     notes: str | None = Field(default=None, max_length=2000)
 
@@ -303,6 +309,21 @@ def create_replacement_route(
     except ReplacementError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
     return {"data": data}
+
+
+@app.post("/api/v1/projects/{project_id}/replacements/from-confirmed-missing", status_code=status.HTTP_201_CREATED)
+def create_combined_replacement_route(
+    project_id: UUID, payload: CombinedReplacementCreateRequest
+) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            order, items = create_combined_replacement_order(
+                db, project_id=project_id, **payload.model_dump()
+            )
+    except ReplacementError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    return {"data": {"order_id": str(order.id), "item_count": len(items)}}
 
 
 @app.patch("/api/v1/projects/{project_id}/replacements/{replacement_id}")

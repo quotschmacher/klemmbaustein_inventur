@@ -26,6 +26,7 @@ type ProjectSummary = {
 type DifferenceItem = { id: string; part_num: string; part_name: string; color_name: string; missing_quantity: number };
 type ReplacementItem = {
   id: string;
+  order_id: string;
   requirement_id: string;
   part_num: string;
   part_name: string;
@@ -230,18 +231,18 @@ function App() {
     }
   }
 
-  async function createReplacement(item: DifferenceItem) {
+  async function createCombinedReplacement() {
     if (!projectId) return;
     try {
-      const response = await fetch(`/api/v1/projects/${projectId}/replacements`, {
+      const response = await fetch(`/api/v1/projects/${projectId}/replacements/from-confirmed-missing`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requirement_id: item.id, qty_ordered: item.missing_quantity, target_session_id: targetSessionId }),
+        body: JSON.stringify({ target_session_id: targetSessionId }),
       });
       if (!response.ok) throw new Error();
       await loadOrders(projectId);
     } catch {
-      setMessage("Die Bestellung konnte nicht angelegt werden.");
+      setMessage("Die Sammelbestellung konnte nicht angelegt werden.");
     }
   }
 
@@ -341,7 +342,7 @@ function App() {
               <h2>Fehlteile & Bestellungen</h2>
               <label>Zielbereich (manuelle Zuordnung)<select value={targetSessionId ?? ""} onChange={(event) => setTargetSessionId(event.target.value || null)}><option value="">Noch nicht zuordnen</option>{sessions.map((session) => <option key={session.id} value={session.id}>{session.label}</option>)}</select></label>
               {!missingFinal && <p className="hinweis">Fehlteile werden erst nach Abschluss aller Pflichtbereiche als bestellbar angezeigt. Die aktuelle Differenz ist noch vorläufig.</p>}
-              {missingFinal && <section><h3>Bestellbare Fehlteile</h3>{missingItems.length === 0 ? <p>Keine bestätigten Fehlteile.</p> : <ul className="positionsliste">{missingItems.map((item) => <li key={item.id}><span>{item.part_num} – {item.part_name}, {item.color_name}: {item.missing_quantity} fehlen</span><button type="button" onClick={() => createReplacement(item)}>Bestellung anlegen</button></li>)}</ul>}</section>}
+              {missingFinal && <section><h3>Bestellbare Fehlteile</h3>{missingItems.length === 0 ? <p>Keine bestätigten Fehlteile.</p> : <><p>Diese Positionen werden gemeinsam als eine Sammelbestellung angelegt.</p><ul className="positionsliste">{missingItems.map((item) => <li key={item.id}><span>{item.part_num} – {item.part_name}, {item.color_name}: {item.missing_quantity} fehlen</span></li>)}</ul><button type="button" onClick={createCombinedReplacement}>Sammelbestellung anlegen ({missingItems.length} Positionen)</button></>}</section>}
               <section><h3>Bestellungen</h3>{replacements.length === 0 ? <p>Noch keine Bestellpositionen.</p> : <ul className="positionsliste">{replacements.map((item) => <li key={item.id}><span>{item.part_num} – {item.part_name}, {item.color_name}: bestellt {item.qty_ordered}, erhalten {item.qty_received}, eingebucht {item.qty_booked}</span><label>Erhalten<input aria-label={`Erhalten ${item.part_num}`} type="number" min={item.qty_booked} value={item.qty_received} onChange={(event) => receiveReplacement(item, Number(event.target.value))} /></label>{item.qty_received > item.qty_booked && <button type="button" onClick={() => bookReplacement(item)}>In Zielbereich einbuchen</button>}</li>)}</ul>}</section>
               <p className="hinweis">Die Zielbereich-Zuordnung ist eine manuelle organisatorische Entscheidung und kein Nachweis, wo das Teil ursprünglich gefehlt hat.</p>
             </section>}

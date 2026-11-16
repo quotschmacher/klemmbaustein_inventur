@@ -48,6 +48,30 @@ def create_replacement(
     return item
 
 
+def create_combined_replacement_order(
+    db: Session, *, project_id: UUID, target_session_id: UUID | None, notes: str | None
+) -> tuple[ReplacementOrder, list[ReplacementItem]]:
+    final, missing = difference_items(db, project_id, "missing")
+    if not final or not missing:
+        raise ReplacementError("Es gibt keine bestätigten Fehlteile für eine Sammelbestellung.")
+    _validate_target_session(db, project_id, target_session_id)
+    order = ReplacementOrder(project_id=project_id, status="planned", notes=notes)
+    db.add(order)
+    db.flush()
+    items = [
+        ReplacementItem(
+            order_id=order.id,
+            requirement_id=UUID(item["id"]),
+            qty_ordered=int(item["missing_quantity"]),
+            target_session_id=target_session_id,
+        )
+        for item in missing
+    ]
+    db.add_all(items)
+    db.flush()
+    return order, items
+
+
 def update_replacement(
     db: Session,
     *,
@@ -179,6 +203,7 @@ def _item_and_order(db: Session, project_id: UUID, item_id: UUID) -> tuple[Repla
 def _item_data(item, order, requirement, part, color) -> dict[str, object]:
     return {
         "id": str(item.id),
+        "order_id": str(order.id),
         "requirement_id": str(requirement.id),
         "part_num": part.part_num,
         "part_name": part.name,
