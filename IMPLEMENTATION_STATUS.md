@@ -21,7 +21,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 | 03 – Sets, Inventarimport und Quellen | DONE | 14 Backend-Tests; Frontend-Test/Lint/Build; Alembic head; echte lokale Rebrickable-UI-Abnahme mit Cache und Proxy-Timeoutschutz | `933374b fix: Rebrickable-Import ohne Proxy-Timeout` |
 | 04 – Bereiche und Zähl-API | DONE | 18 Backend-Tests; +/−/Direkteingabe, Idempotenz, Revision, Paralleltest und abgeschlossene Bereiche geprüft; Live-API-Smoketest erfolgreich | `f0c47b8 task-04: Bereiche und Zähl-API` |
 | 05 – Gesamtsummen, Fehlmengen und Überschüsse | DONE | 21 Backend-Tests; vorläufige/abschließende Fehlmengen, Überschuss und Spare-Trennung geprüft; Live-Summary/Differences-Smoketest | `00c0472 task-05: Gesamtsummen und Differenzen` |
-| 06 – Zähloberfläche und Farbfilter | DONE | 22 Backend-Tests; Frontend-Vitest, ESLint und Produktionsbuild erfolgreich | `noch zu committen` |
+| 06 – Zähloberfläche und Farbfilter | DONE | 22 Backend-Tests; Frontend-Vitest, ESLint, Produktionsbuild und Browser-E2E erfolgreich | `898e9b8 task-06: Zähloberfläche und Farbfilter` |
 | 07 – Gesamtübersicht und Abschlussworkflow | TODO | noch keine | – |
 | 08 – Fehlteile, Bestellungen und Beutelzuordnung | TODO | noch keine | – |
 | 09 – CSV/JSON-Export, Restore und BrickLink | TODO | noch keine | – |
@@ -78,5 +78,5 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - Ergebnis: Nach dem CSV- oder Rebrickable-Import zeigt die Oberfläche die Bereiche als auswählbare Tabs und lädt die Zählpositionen für den gewählten Bereich. Jede Zeile hat Soll gesamt, Ist im Bereich, Ist gesamt, globale Abweichung sowie +1, −1 und Direkteingabe.
 - Filter: Die Suche arbeitet nach Teilenummer oder Name. Der Farbfilter blendet ausschließlich eine gewählte Farbe ein; Filterzustand bleibt beim Bereichswechsel erhalten und lässt sich zurücksetzen.
 - API-Abhängigkeit: Der Inventarendpunkt liefert für einen Bereich zusätzlich Bereichsmenge/-revision und globale Menge; er unterstützt serverseitig `session_id`, `color_id` und `search`.
-- Tests und Abnahme: `ruff check .`, 22 Backend-Tests, Alembic head sowie Frontend-Vitest/ESLint/Vite-Build erfolgreich. Die produktive Browser-Abnahme erfolgt nach dem lokalen Commit/Rebuild.
+- Tests und Abnahme: `ruff check .`, 22 Backend-Tests, Alembic head sowie Frontend-Vitest/ESLint/Vite-Build erfolgreich. Die Browser-E2E-Abnahme auf `http://localhost:8080` importierte die Test-CSV, zählte +1, isolierte Rot auf exakt eine Zeile und behielt den Farbfilter beim Bereichswechsel.
 - Nächste Task: 07 – Gesamtübersicht und Abschlussworkflow.
