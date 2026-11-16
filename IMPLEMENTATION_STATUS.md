@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 1 – Setup/Schema | abgeschlossen | Task 01 und 02 abgenommen: Compose, Healthchecks, SQLAlchemy/Alembic-Schema und produktive Migration | keine |
 | 2 – Inventarimport | abgeschlossen | CSV-/Rebrickable-Import, Quellen-/Provenance-Daten und lokale Cache-Wiederverwendung abgenommen | keine |
-| 3 – Zählen/UI | abgeschlossen | Task 04–06: Zähl-API, globale Reconciliation, Zähloberfläche und Farbfilter abgenommen | keine |
+| 3 – Zählen/UI | abgeschlossen | Task 04–07: Zähl-API, globale Reconciliation, Zähloberfläche, Übersicht und Abschlussworkflow abgenommen | keine |
 | 4 – Nachbestellung | offen | nicht durchgeführt | CSV/JSON/XML, Zuordnung |
 | 5 – Härtung/Abnahme | offen | nicht durchgeführt | Backup/Restore, End-to-End |
 
@@ -22,7 +22,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 | 04 – Bereiche und Zähl-API | DONE | 18 Backend-Tests; +/−/Direkteingabe, Idempotenz, Revision, Paralleltest und abgeschlossene Bereiche geprüft; Live-API-Smoketest erfolgreich | `f0c47b8 task-04: Bereiche und Zähl-API` |
 | 05 – Gesamtsummen, Fehlmengen und Überschüsse | DONE | 21 Backend-Tests; vorläufige/abschließende Fehlmengen, Überschuss und Spare-Trennung geprüft; Live-Summary/Differences-Smoketest | `00c0472 task-05: Gesamtsummen und Differenzen` |
 | 06 – Zähloberfläche und Farbfilter | DONE | 22 Backend-Tests; Frontend-Vitest, ESLint, Produktionsbuild und Browser-E2E erfolgreich | `898e9b8 task-06: Zähloberfläche und Farbfilter` |
-| 07 – Gesamtübersicht und Abschlussworkflow | TODO | noch keine | – |
+| 07 – Gesamtübersicht und Abschlussworkflow | DONE | 23 Backend-Tests; 2 Frontend-Vitest; ESLint, Vite-Build und Browser-E2E erfolgreich | `92493ec task-07: Gesamtübersicht und Abschlussworkflow` |
 | 08 – Fehlteile, Bestellungen und Beutelzuordnung | TODO | noch keine | – |
 | 09 – CSV/JSON-Export, Restore und BrickLink | TODO | noch keine | – |
 | 10 – Security, Qualität und produktive Abnahme | TODO | noch keine | – |
@@ -80,3 +80,11 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - API-Abhängigkeit: Der Inventarendpunkt liefert für einen Bereich zusätzlich Bereichsmenge/-revision und globale Menge; er unterstützt serverseitig `session_id`, `color_id` und `search`.
 - Tests und Abnahme: `ruff check .`, 22 Backend-Tests, Alembic head sowie Frontend-Vitest/ESLint/Vite-Build erfolgreich. Die Browser-E2E-Abnahme auf `http://localhost:8080` importierte die Test-CSV, zählte +1, isolierte Rot auf exakt eine Zeile und behielt den Farbfilter beim Bereichswechsel.
 - Nächste Task: 07 – Gesamtübersicht und Abschlussworkflow.
+
+## Task 07 – 16. November 2026
+
+- Ergebnis: Nach einem Import öffnet die Anwendung direkt die Gesamtübersicht. Sie zeigt offene Pflichtbereiche, globale Überschusstypen und vorläufige bzw. bestätigte Fehlmengen. Jeder Bereich zeigt Status und die Anzahl tatsächlich erfasster Positionen sowie Fortsetzen, Abschließen und Wieder öffnen.
+- Abschlussworkflow: Das Abschließen verlangt eine explizite Bestätigung; abgeschlossene Bereiche sperren weiterhin Zählmutationen serverseitig. Wieder öffnen setzt den Bereich zurück auf `in_progress` und die Übersicht wird aktualisiert.
+- Layout: Die Projektansicht nutzt jetzt bis zu 72rem Breite. Verschachtelte Bereiche erhalten nicht mehr versehentlich die Containerbreite; die Zähltabelle ist innerhalb eines horizontalen Rahmens abgesichert. Nach Import wird das große Anlageformular ausgeblendet, sodass Übersicht und Navigation ohne Scrollen sichtbar sind.
+- Tests und Abnahme: 23 Backend-Tests, 2 Frontend-Vitest, Ruff, ESLint, Vite-Build und Alembic head erfolgreich. Browser-E2E auf Port 8080 prüfte die Übersicht, das Ausblenden des Formulars, Fortsetzen, Abschließen und Wieder öffnen; die Seite hatte keine horizontale Überbreite.
+- Nächste Task: 08 – Fehlteile, Bestellungen und Beutelzuordnung.
