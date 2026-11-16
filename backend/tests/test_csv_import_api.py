@@ -25,3 +25,11 @@ def test_csv_import_is_idempotent_and_keeps_spares_separate() -> None:
     assert first_import.json()["data"] == {"requirements": 4, "imported": True}
     assert second_import.status_code == 200
     assert second_import.json()["data"] == {"requirements": 4, "imported": False}
+
+    inventory = client.get(f"/api/v1/projects/{project_id}/inventory")
+    assert inventory.status_code == 200
+    assert inventory.json()["data"]["total"] == 4
+    assert {item["inventory_class"] for item in inventory.json()["data"]["items"]} == {
+        "required",
+        "spare",
+    }

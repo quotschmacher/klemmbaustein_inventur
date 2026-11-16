@@ -6,8 +6,9 @@ from fastapi import FastAPI, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, Field
 from psycopg import connect
 from psycopg.errors import OperationalError
+from sqlalchemy import select
 
-from app.db.models import Project
+from app.db.models import Color, InventoryRequirement, PartCatalog, Project
 from app.db.session import create_session_factory
 from app.services.inventory_import import CsvImportError, create_project, import_csv_inventory
 
@@ -69,3 +70,31 @@ async def import_csv_route(
 
     response.status_code = status.HTTP_201_CREATED if imported else status.HTTP_200_OK
     return {"data": {"requirements": requirements, "imported": imported}}
+
+
+@app.get("/api/v1/projects/{project_id}/inventory")
+def inventory_route(project_id: UUID) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    with factory() as session:
+        project = session.get(Project, project_id)
+        if project is None or project.inventory_snapshot_id is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventar nicht gefunden.")
+        rows = session.execute(
+            select(InventoryRequirement, PartCatalog, Color)
+            .join(PartCatalog, InventoryRequirement.part_id == PartCatalog.id)
+            .join(Color, InventoryRequirement.color_id == Color.id)
+            .where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
+            .order_by(PartCatalog.part_num, Color.provider_color_id)
+        ).all()
+    items = [
+        {
+            "part_num": part.part_num,
+            "part_name": part.name,
+            "color_id": color.provider_color_id,
+            "color_name": color.name,
+            "expected_qty": requirement.expected_qty,
+            "inventory_class": requirement.inventory_class.value,
+        }
+        for requirement, part, color in rows
+    ]
+    return {"data": {"total": len(items), "items": items}}
