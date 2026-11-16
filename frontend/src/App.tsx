@@ -209,7 +209,7 @@ function App() {
         <h1 id="seitentitel">LEGO Inventur</h1>
         <p>Lege ein Projekt an und importiere ein CSV-Testinventar.</p>
         <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
-        <form onSubmit={importInventory}>
+        {!projectId && <form onSubmit={importInventory}>
           <label htmlFor="set-number">Set-Nummer auf dem Karton</label>
           <input id="set-number" value={setNumber} onChange={(event) => setSetNumber(event.target.value)} required />
           <label htmlFor="project-label">Projektname</label>
@@ -220,7 +220,7 @@ function App() {
           <input id="inventory-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
           <button type="submit">Inventar importieren</button>
           <button type="button" onClick={importFromRebrickable}>Von Rebrickable importieren</button>
-        </form>
+        </form>}
         <p aria-live="polite">{message}</p>
         {projectId && selectedSessionId && (
           <section className="arbeitsbereich" aria-label="Projektansicht">
