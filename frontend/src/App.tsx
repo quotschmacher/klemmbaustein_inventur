@@ -196,6 +196,18 @@ function App() {
     }
   }
 
+  function startNewProject() {
+    setProjectId(null);
+    setSelectedSessionId(null);
+    setSessions([]);
+    setItems([]);
+    setSummary(null);
+    setSurplusItems([]);
+    setSelectedColorId(null);
+    setSearch("");
+    setMessage("Lege ein weiteres Projekt an und importiere dessen Inventar.");
+  }
+
   const colors = Array.from(new Map(items.map((item) => [item.color_id, item.color_name])).entries());
   const visibleItems = items.filter((item) => (
     (selectedColorId === null || item.color_id === selectedColorId)
@@ -227,6 +239,7 @@ function App() {
             <nav className="projektnavigation" aria-label="Projektseiten">
               <button type="button" aria-current={view === "overview" ? "page" : undefined} onClick={() => setView("overview")}>Übersicht</button>
               <button type="button" aria-current={view === "count" ? "page" : undefined} onClick={() => setView("count")}>Zählen</button>
+              <button type="button" onClick={startNewProject}>Neues Set importieren</button>
             </nav>
             {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
               <h2>Gesamtübersicht</h2>

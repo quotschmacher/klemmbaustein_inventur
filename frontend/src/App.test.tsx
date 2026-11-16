@@ -43,5 +43,6 @@ test("zeigt nach dem Import die Gesamtübersicht", async () => {
   expect(await screen.findByRole("heading", { name: "Gesamtübersicht" })).toBeInTheDocument();
   expect(screen.getByText("Noch offene Zählbereiche")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Zählen" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Neues Set importieren" })).toBeInTheDocument();
   await waitFor(() => expect(fetch).toHaveBeenCalled());
 });
