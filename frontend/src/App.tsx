@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 import "./App.css";
 
@@ -38,6 +38,7 @@ type ReplacementItem = {
   target_session_id: string | null;
   status: string;
 };
+type ProjectListItem = { id: string; label: string; set_num: string; status: string };
 
 function _sessionLabels(areas: string): string[] | undefined {
   const labels = areas.split(",").map((value) => value.trim()).filter(Boolean);
@@ -63,6 +64,7 @@ function App() {
   const [missingFinal, setMissingFinal] = useState(false);
   const [replacements, setReplacements] = useState<ReplacementItem[]>([]);
   const [imagePreview, setImagePreview] = useState<{ url: string; x: number; y: number } | null>(null);
+  const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [message, setMessage] = useState("CSV-Testinventar importieren oder ein eigenes Projekt anlegen.");
 
   async function loadCountingData(nextProjectId: string, nextSessionId?: string) {
@@ -79,6 +81,15 @@ function App() {
     setTargetSessionId((current) => current ?? sessionId);
     setItems(inventory.data.items);
   }
+
+  async function loadProjects() {
+    const response = await fetch("/api/v1/projects");
+    const body = await response.json();
+    if (!response.ok) throw new Error();
+    setProjects(body.data);
+  }
+
+  useEffect(() => { void loadProjects().catch(() => undefined); }, []);
 
   async function loadOverview(nextProjectId: string) {
     const [summaryResponse, surplusResponse] = await Promise.all([
@@ -103,6 +114,19 @@ function App() {
     setMissingFinal(missingData.data.final);
     setMissingItems(missingData.data.items);
     setReplacements(replacementsData.data);
+  }
+
+  async function openProject(nextProjectId: string) {
+    try {
+      setTargetSessionId(null);
+      await loadCountingData(nextProjectId);
+      await loadOverview(nextProjectId);
+      await loadOrders(nextProjectId);
+      setView("overview");
+      setMessage("Projekt wurde fortgesetzt.");
+    } catch {
+      setMessage("Das gespeicherte Projekt konnte nicht geladen werden.");
+    }
   }
 
   async function importInventory(event: FormEvent<HTMLFormElement>) {
@@ -131,6 +155,7 @@ function App() {
       await loadCountingData(project.data.id);
       await loadOverview(project.data.id);
       await loadOrders(project.data.id);
+      await loadProjects();
       setView("overview");
       setMessage(`${imported.data.requirements} Positionen wurden importiert.`);
     } catch {
@@ -162,6 +187,7 @@ function App() {
       await loadCountingData(project.data.id);
       await loadOverview(project.data.id);
       await loadOrders(project.data.id);
+      await loadProjects();
       setView("overview");
       setMessage(
         imported.data.imported
@@ -308,6 +334,7 @@ function App() {
         <h1 id="seitentitel">LEGO Inventur</h1>
         <p>Lege ein Projekt an und importiere ein CSV-Testinventar.</p>
         <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
+        {!projectId && projects.length > 0 && <section className="projektliste" aria-label="Gespeicherte Projekte"><h2>Gespeicherte Projekte</h2>{projects.map((project) => <button type="button" key={project.id} onClick={() => openProject(project.id)}>{project.label} · {project.set_num} fortsetzen</button>)}</section>}
         {!projectId && <form onSubmit={importInventory}>
           <label htmlFor="set-number">Set-Nummer auf dem Karton</label>
           <input id="set-number" value={setNumber} onChange={(event) => setSetNumber(event.target.value)} required />

@@ -15,6 +15,7 @@ from app.db.models import (
     CountBalance,
     CountingSession,
     InventoryRequirement,
+    LegoSet,
     PartCatalog,
     Project,
     SessionStatus,
@@ -125,6 +126,21 @@ def create_project_route(payload: ProjectCreateRequest) -> dict[str, dict[str, s
     with factory.begin() as session:
         project = create_project(session, payload.set_num, payload.label, payload.session_labels)
         return {"data": {"id": str(project.id)}}
+
+
+@app.get("/api/v1/projects")
+def list_projects_route() -> dict[str, list[dict[str, object]]]:
+    factory = create_session_factory()
+    with factory() as db:
+        rows = db.execute(
+            select(Project, LegoSet)
+            .join(LegoSet, Project.set_id == LegoSet.id)
+            .order_by(Project.updated_at.desc())
+        ).all()
+    return {"data": [
+        {"id": str(project.id), "label": project.label, "set_num": lego_set.provider_set_id, "status": project.status.value}
+        for project, lego_set in rows
+    ]}
 
 
 @app.post("/api/v1/projects/{project_id}/import/csv")

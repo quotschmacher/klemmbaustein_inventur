@@ -27,6 +27,7 @@ afterEach(() => {
 
 test("zeigt nach dem Import die Gesamtübersicht", async () => {
   const responses = [
+    { data: [] },
     { data: { id: "project-1" } },
     { data: { requirements: 1 } },
     { data: [{ id: "session-1", label: "Unsortiert", status: "in_progress", counted_positions: 0 }] },
@@ -35,6 +36,7 @@ test("zeigt nach dem Import die Gesamtübersicht", async () => {
     { data: { items: [] } },
     { data: { final: false, items: [] } },
     { data: [] },
+    { data: [{ id: "project-1", label: "Winkelgasse", set_num: "75978", status: "in_progress" }] },
   ];
   vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(responses.shift()) })));
   render(<App />);
