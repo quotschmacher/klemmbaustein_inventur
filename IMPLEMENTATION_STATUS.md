@@ -5,7 +5,7 @@
 | Phase | Status | Testergebnisse | Offene Punkte |
 |---|---|---|---|
 | 1 – Setup/Schema | abgeschlossen | Task 01 und 02 abgenommen: Compose, Healthchecks, SQLAlchemy/Alembic-Schema und produktive Migration | keine |
-| 2 – Inventarimport | WIP | CSV-Import-API: 5 Backend-Tests erfolgreich | Rebrickable-Import, Quellenmetadaten und vollständige Abnahme |
+| 2 – Inventarimport | abgeschlossen | CSV-/Rebrickable-Import, Quellen-/Provenance-Daten und lokale Cache-Wiederverwendung abgenommen | keine |
 | 3 – Zählen/UI | offen | nicht durchgeführt | 5 Sessions, +/- und Farbfokus, Überschuss |
 | 4 – Nachbestellung | offen | nicht durchgeführt | CSV/JSON/XML, Zuordnung |
 | 5 – Härtung/Abnahme | offen | nicht durchgeführt | Backup/Restore, End-to-End |
@@ -18,7 +18,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 |---|---|---|---|
 | 01 – Devcontainer und Docker-Start | DONE | Backend: 1 pytest; Frontend: 1 Vitest; Ruff, ESLint, TypeScript/Vite-Build; `docker compose up -d --build`, alle Dienste healthy, Root und `/api/health` auf Port 8080 | `952ff2f task-01: Devcontainer und Docker-Start` |
 | 02 – PostgreSQL-Datenmodell und Migrationen | DONE | 4 pytest, Ruff, `alembic upgrade head`; frische PostgreSQL-Testdatenbank und Produktions-Migrationsservice auf Revision `d5a0b1802099` geprüft | `e3c245a task-02: PostgreSQL-Datenmodell und Migrationen` |
-| 03 – Sets, Inventarimport und Quellen | WIP | synthetischer CSV-Import: Projektanlage, Pflicht-/Spare-Trennung, Idempotenz | Rebrickable und produktive Compose-Abnahme |
+| 03 – Sets, Inventarimport und Quellen | DONE | 14 Backend-Tests; Frontend-Test/Lint/Build; Alembic head; echte lokale Rebrickable-UI-Abnahme mit Cache und Proxy-Timeoutschutz | `933374b fix: Rebrickable-Import ohne Proxy-Timeout` |
 | 04 – Bereiche und Zähl-API | TODO | noch keine | – |
 | 05 – Gesamtsummen, Fehlmengen und Überschüsse | TODO | noch keine | – |
 | 06 – Zähloberfläche und Farbfilter | TODO | noch keine | – |
@@ -47,3 +47,12 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - Behobener Build-Fehler: Der erste Produktions-Migrationscontainer enthielt `alembic.ini` und `migrations/` nicht. `backend/Dockerfile` kopiert beide nun ins Image; der erneute Compose-Start lief erfolgreich.
 - Architekturentscheidungen: keine neue ADR; ADR-001, ADR-005 und ADR-006 konkret umgesetzt.
 - Nächste Task: 03 – Sets, Inventarimport und Quellen.
+
+## Task 03 – 16. November 2026
+
+- Ergebnis: Projekte können ein synthetisches UTF-8-CSV-Inventar importieren und danach die Teileliste anzeigen. Anforderungen bleiben nach Teilenummer, Farbe und Inventarklasse getrennt; Spares werden nicht Pflichtteilen zugerechnet. Wiederholte CSV-Dateien sind idempotent.
+- Rebrickable: Der serverseitige Import akzeptiert Kartonnummern wie `75978` und normalisiert sie zu `75978-1`. Er verwendet die expandierte Set-Stückliste sowie eine Figurencheckliste, speichert Quelle/Checksumme/Provenance und zeigt das Ergebnis in der UI. API-Schlüssel bleibt ausschließlich serverseitig.
+- Abrufschutz: Wiederholte Imports desselben Sets verwenden einen validierten lokalen Rebrickable-Snapshot ohne neue Anbieter-Requests. Der Reverse Proxy wartet bis zu 180 Sekunden; HTML-Proxyfehler werden im UI verständlich behandelt.
+- Tests und Abnahme: `ruff check .`, 14 Backend-Tests, `alembic upgrade head`/`current` auf `8e64fb2d1a11`, Frontend-Test/ESLint/Vite-Build, produktive Container und `/api/health` erfolgreich. Der Nutzer bestätigte den erfolgreichen lokalen Rebrickable-Import nach Cache-/Timeoutkorrektur.
+- Offene Risiken: Kein automatischer Provider-Refresh; ein späterer expliziter Aktualisierungsworkflow muss Cache-Invalidierung und Rate-Limit berücksichtigen.
+- Nächste Task: 04 – Bereiche und Zähl-API.
