@@ -59,7 +59,7 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 
 ## Task 04 – 16. November 2026
 
-- Ergebnis: Neue Projekte erhalten fünf Pflichtbereiche `Anleitung 1` bis `Anleitung 4` und `Minifiguren`. Die API kann Bereiche lesen, ergänzen und ändern (Name, Reihenfolge, Pflichtstatus, Abschlussstatus).
+- Ergebnis: Projekte für 75978 erhalten fünf Pflichtbereiche `Anleitung 1` bis `Anleitung 4` und `Minifiguren`. Andere Sets starten mit `Unsortiert`; beim Anlegen können beliebig viele kommagetrennte Bereichsnamen vorgegeben werden. Die API kann Bereiche lesen, ergänzen und ändern (Name, Reihenfolge, Pflichtstatus, Abschlussstatus).
 - Zähl-API: `POST adjust` für +/− und `PUT` für Direkteingabe persistieren `count_balances` und unveränderliche `count_events` atomar. Negative Mengen werden abgewiesen, + über Soll bleibt möglich, Wiederholung derselben Mutation bleibt idempotent und Direkteingaben erkennen veraltete Revisionen.
 - Parallelität: Die Bilanz wird per PostgreSQL-Upsert und `FOR UPDATE` gesperrt; zwei parallele +1-Anfragen mit verschiedenen Mutation-UUIDs wurden ohne Lost Update getestet.
 - Tests und Abnahme: `ruff check .`, 18 Backend-Tests und Alembic head erfolgreich. Im laufenden Compose-Stack wurde Projekt → CSV-Import → Standardbereich → +1 über den öffentlichen Reverse Proxy geprüft; Antwort enthielt `session_quantity=1`, `global_quantity=1`.
