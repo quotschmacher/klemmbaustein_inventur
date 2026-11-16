@@ -43,6 +43,7 @@ function App() {
         <p className="kicker">Set-Inventur</p>
         <h1 id="seitentitel">LEGO Inventur</h1>
         <p>Lege ein Projekt an und importiere ein CSV-Testinventar.</p>
+        <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
         <form onSubmit={importInventory}>
           <label htmlFor="set-number">Set-Nummer</label>
           <input id="set-number" value={setNumber} onChange={(event) => setSetNumber(event.target.value)} required />
