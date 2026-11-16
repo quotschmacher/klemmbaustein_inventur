@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 1 – Setup/Schema | abgeschlossen | Task 01 und 02 abgenommen: Compose, Healthchecks, SQLAlchemy/Alembic-Schema und produktive Migration | keine |
 | 2 – Inventarimport | abgeschlossen | CSV-/Rebrickable-Import, Quellen-/Provenance-Daten und lokale Cache-Wiederverwendung abgenommen | keine |
-| 3 – Zählen/UI | WIP | Task 04: Bereiche und Zähl-API mit 18 Backend-Tests abgenommen | Zähloberfläche und Farbfilter in Task 06; globale Differenzen in Task 05 |
+| 3 – Zählen/UI | WIP | Task 04/05: Zähl-API und globale Reconciliation mit 21 Backend-Tests abgenommen | Zähloberfläche und Farbfilter in Task 06 |
 | 4 – Nachbestellung | offen | nicht durchgeführt | CSV/JSON/XML, Zuordnung |
 | 5 – Härtung/Abnahme | offen | nicht durchgeführt | Backup/Restore, End-to-End |
 
@@ -20,7 +20,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 | 02 – PostgreSQL-Datenmodell und Migrationen | DONE | 4 pytest, Ruff, `alembic upgrade head`; frische PostgreSQL-Testdatenbank und Produktions-Migrationsservice auf Revision `d5a0b1802099` geprüft | `e3c245a task-02: PostgreSQL-Datenmodell und Migrationen` |
 | 03 – Sets, Inventarimport und Quellen | DONE | 14 Backend-Tests; Frontend-Test/Lint/Build; Alembic head; echte lokale Rebrickable-UI-Abnahme mit Cache und Proxy-Timeoutschutz | `933374b fix: Rebrickable-Import ohne Proxy-Timeout` |
 | 04 – Bereiche und Zähl-API | DONE | 18 Backend-Tests; +/−/Direkteingabe, Idempotenz, Revision, Paralleltest und abgeschlossene Bereiche geprüft; Live-API-Smoketest erfolgreich | `f0c47b8 task-04: Bereiche und Zähl-API` |
-| 05 – Gesamtsummen, Fehlmengen und Überschüsse | TODO | noch keine | – |
+| 05 – Gesamtsummen, Fehlmengen und Überschüsse | DONE | 21 Backend-Tests; vorläufige/abschließende Fehlmengen, Überschuss und Spare-Trennung geprüft; Live-Summary/Differences-Smoketest | `00c0472 task-05: Gesamtsummen und Differenzen` |
 | 06 – Zähloberfläche und Farbfilter | TODO | noch keine | – |
 | 07 – Gesamtübersicht und Abschlussworkflow | TODO | noch keine | – |
 | 08 – Fehlteile, Bestellungen und Beutelzuordnung | TODO | noch keine | – |
@@ -64,3 +64,11 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - Parallelität: Die Bilanz wird per PostgreSQL-Upsert und `FOR UPDATE` gesperrt; zwei parallele +1-Anfragen mit verschiedenen Mutation-UUIDs wurden ohne Lost Update getestet.
 - Tests und Abnahme: `ruff check .`, 18 Backend-Tests und Alembic head erfolgreich. Im laufenden Compose-Stack wurde Projekt → CSV-Import → Standardbereich → +1 über den öffentlichen Reverse Proxy geprüft; Antwort enthielt `session_quantity=1`, `global_quantity=1`.
 - Nächste Task: 05 – Gesamtsummen, Fehlmengen und Überschüsse.
+
+## Task 05 – 16. November 2026
+
+- Ergebnis: Die Reconciliation berechnet Gesamt-Ist über alle nicht archivierten Bereiche je Inventarposition, Fehlmenge und Überschuss. Spares werden aus der Pflichtvollständigkeit ausgeschlossen.
+- Statuslogik: Überschüsse sind sofort über `differences?type=surplus` sichtbar. Fehlmengen bleiben bei offenen Pflichtbereichen als `provisional_gap_units` und werden erst nach Abschluss aller Pflichtbereiche als `confirmed_missing_units` und Missing-Liste geführt. Wiederöffnen schaltet wieder auf vorläufig.
+- API: `GET /projects/{id}/summary` und `GET /projects/{id}/differences?type=missing|surplus|all`; Zählantworten enthalten zusätzlich globale Abweichung, Fehl-/Überschussmenge und Status.
+- Tests und Abnahme: 21 Backend-Tests sowie Ruff/Alembic head erfolgreich. Der öffentliche Live-Smoke über Port 8080 bestätigte Summen und sofortigen Überschuss.
+- Nächste Task: 06 – Zähloberfläche und Farbfilter.
