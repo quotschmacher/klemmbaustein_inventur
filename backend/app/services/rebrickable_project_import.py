@@ -5,9 +5,18 @@ import json
 import re
 
 import httpx
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import LegoSet, MinifigRequirement, Project
+from app.db.models import (
+    InventoryRequirement,
+    InventorySnapshot,
+    LegoSet,
+    MinifigRequirement,
+    Project,
+    ProjectStatus,
+    SnapshotValidationStatus,
+)
 from app.services.inventory_import import CsvImportError, import_inventory_rows
 from app.services.rebrickable import RebrickableClient
 from app.services.rebrickable_import import rebrickable_rows
@@ -26,13 +35,31 @@ class RebrickableProjectImporter:
         lego_set = session.get(LegoSet, project.set_id)
         if lego_set is None:
             raise CsvImportError("Das Projekt besitzt kein Set.")
+        cached_snapshot = session.scalar(
+            select(InventorySnapshot)
+            .where(
+                InventorySnapshot.set_id == project.set_id,
+                InventorySnapshot.provider == "rebrickable",
+                InventorySnapshot.validation_status == SnapshotValidationStatus.VALID,
+            )
+            .order_by(InventorySnapshot.imported_at.desc())
+        )
+        if cached_snapshot is not None:
+            project.inventory_snapshot_id = cached_snapshot.id
+            project.status = ProjectStatus.IN_PROGRESS
+            requirement_count = session.scalar(
+                select(func.count()).select_from(InventoryRequirement).where(
+                    InventoryRequirement.snapshot_id == cached_snapshot.id
+                )
+            )
+            return False, int(requirement_count or 0)
         set_num = canonical_set_num(lego_set.provider_set_id)
         detail = self._client.fetch_object(f"/api/v3/lego/sets/{set_num}/")
-        regular_parts = self._client.fetch_all_pages(
-            f"/api/v3/lego/sets/{set_num}/parts/?inc_minifig_parts=0"
+        expanded_parts = self._client.fetch_all_pages(
+            f"/api/v3/lego/sets/{set_num}/parts/?inc_minifig_parts=1"
         )
         minifigs = self._client.fetch_all_pages(f"/api/v3/lego/sets/{set_num}/minifigs/")
-        rows = rebrickable_rows(regular_parts)
+        rows = rebrickable_rows(expanded_parts)
         minifig_requirements: list[tuple[str, str, int, str | None]] = []
         for minifig in minifigs:
             try:
@@ -41,14 +68,12 @@ class RebrickableProjectImporter:
                 fig_name = str(minifig.get("set_name") or fig_ref)
             except (KeyError, TypeError, ValueError) as error:
                 raise CsvImportError("Rebrickable lieferte eine ungültige Minifigur.") from error
-            fig_parts = self._client.fetch_all_pages(f"/api/v3/lego/minifigs/{fig_ref}/parts/")
-            rows.extend(rebrickable_rows([], fig_parts, minifig_quantity=quantity, fig_ref=fig_ref))
             minifig_requirements.append(
                 (fig_ref, fig_name, quantity, str(minifig["set_img_url"]) if minifig.get("set_img_url") else None)
             )
 
         checksum = hashlib.sha256(
-            json.dumps({"detail": detail, "parts": regular_parts, "minifigs": minifigs}, sort_keys=True).encode()
+            json.dumps({"detail": detail, "parts": expanded_parts, "minifigs": minifigs}, sort_keys=True).encode()
         ).hexdigest()
         lego_set.name = str(detail.get("name") or lego_set.name)
         lego_set.year = int(detail["year"]) if detail.get("year") is not None else lego_set.year
@@ -59,7 +84,7 @@ class RebrickableProjectImporter:
             provider="rebrickable",
             source_revision=checksum,
             checksum=checksum,
-            rows=_merge_rows(rows),
+            rows=rows,
         )
         if imported and project.inventory_snapshot_id is not None:
             for fig_ref, fig_name, quantity, image_url in minifig_requirements:
@@ -73,24 +98,6 @@ class RebrickableProjectImporter:
                     )
                 )
         return imported, requirement_count
-
-
-def _merge_rows(rows: list) -> list:
-    merged = {}
-    for row in rows:
-        key = (row.part_num, row.color_id, row.inventory_class)
-        if key not in merged:
-            merged[key] = row
-            continue
-        existing = merged[key]
-        merged[key] = existing.__class__(
-            **{
-                **existing.__dict__,
-                "quantity": existing.quantity + row.quantity,
-                "provenance": existing.provenance + row.provenance,
-            }
-        )
-    return list(merged.values())
 
 
 def default_importer(api_key: str) -> RebrickableProjectImporter:

@@ -63,7 +63,11 @@ function App() {
       const inventory = await inventoryResponse.json();
       if (!inventoryResponse.ok) throw new Error();
       setItems(inventory.data.items);
-      setMessage(`${imported.data.requirements} Positionen wurden von Rebrickable importiert.`);
+      setMessage(
+        imported.data.imported
+          ? `${imported.data.requirements} Positionen wurden von Rebrickable importiert.`
+          : `${imported.data.requirements} Positionen wurden aus dem lokalen Rebrickable-Cache übernommen.`,
+      );
     } catch (error) {
       setMessage(error instanceof Error && error.message ? error.message : "Der Rebrickable-Import ist fehlgeschlagen.");
     }
