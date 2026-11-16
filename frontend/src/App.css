@@ -45,3 +45,99 @@ h1 + p {
   margin-bottom: 0;
   color: #4b5563;
 }
+
+form,
+.filterbar {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+
+label {
+  display: grid;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+input,
+select,
+button {
+  min-height: 2.4rem;
+  border: 1px solid #aeb7ca;
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.6rem;
+  font: inherit;
+}
+
+button {
+  width: fit-content;
+  cursor: pointer;
+  border-color: #4657a9;
+  background: #4657a9;
+  color: #fff;
+}
+
+.zaehlbereich {
+  margin-top: 2rem;
+  border-top: 1px solid #d6dbe6;
+  padding-top: 1.5rem;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tabs button[aria-selected="false"],
+.filterbar button {
+  background: #fff;
+  color: #27324d;
+  border-color: #aeb7ca;
+}
+
+.filterbar {
+  grid-template-columns: minmax(12rem, 1fr) minmax(10rem, 1fr) auto;
+  align-items: end;
+}
+
+.hinweis {
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+table {
+  width: 100%;
+  margin-top: 1rem;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+th,
+td {
+  border-bottom: 1px solid #d6dbe6;
+  padding: 0.6rem 0.4rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+td:last-child {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+td:last-child button {
+  min-width: 2.25rem;
+}
+
+td:last-child input {
+  width: 4.25rem;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .startseite { padding: 1rem; place-items: start; }
+  .startseite section { padding: 1.25rem; overflow-x: auto; }
+  .filterbar { grid-template-columns: 1fr; }
+}

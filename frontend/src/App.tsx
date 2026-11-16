@@ -2,7 +2,20 @@ import { FormEvent, useState } from "react";
 
 import "./App.css";
 
-type InventoryItem = { part_num: string; part_name: string; color_name: string; expected_qty: number; inventory_class: string };
+type InventoryItem = {
+  id: string;
+  part_num: string;
+  part_name: string;
+  color_id: number;
+  color_name: string;
+  expected_qty: number;
+  inventory_class: string;
+  session_quantity: number;
+  session_revision: number;
+  global_quantity: number;
+};
+
+type CountingSession = { id: string; label: string; status: string };
 
 function _sessionLabels(areas: string): string[] | undefined {
   const labels = areas.split(",").map((value) => value.trim()).filter(Boolean);
@@ -15,7 +28,26 @@ function App() {
   const [areas, setAreas] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [sessions, setSessions] = useState<CountingSession[]>([]);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
   const [message, setMessage] = useState("CSV-Testinventar importieren oder ein eigenes Projekt anlegen.");
+
+  async function loadCountingData(nextProjectId: string, nextSessionId?: string) {
+    const sessionsResponse = await fetch(`/api/v1/projects/${nextProjectId}/sessions`);
+    const sessionData = await sessionsResponse.json();
+    if (!sessionsResponse.ok || sessionData.data.length === 0) throw new Error();
+    const sessionId = nextSessionId ?? sessionData.data[0].id;
+    const inventoryResponse = await fetch(`/api/v1/projects/${nextProjectId}/inventory?session_id=${sessionId}`);
+    const inventory = await inventoryResponse.json();
+    if (!inventoryResponse.ok) throw new Error();
+    setProjectId(nextProjectId);
+    setSessions(sessionData.data);
+    setSelectedSessionId(sessionId);
+    setItems(inventory.data.items);
+  }
 
   async function importInventory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,10 +72,7 @@ function App() {
       });
       const imported = await importResponse.json();
       if (!importResponse.ok) throw new Error();
-      const inventoryResponse = await fetch(`/api/v1/projects/${project.data.id}/inventory`);
-      const inventory = await inventoryResponse.json();
-      if (!inventoryResponse.ok) throw new Error();
-      setItems(inventory.data.items);
+      await loadCountingData(project.data.id);
       setMessage(`${imported.data.requirements} Positionen wurden importiert.`);
     } catch {
       setMessage("Der Import ist fehlgeschlagen. Bitte prüfe die CSV-Datei.");
@@ -71,10 +100,7 @@ function App() {
         throw new Error("Der Rebrickable-Import wurde nicht rechtzeitig beantwortet. Bitte erneut klicken; ein abgeschlossener Import wird aus dem lokalen Cache übernommen.");
       }
       if (!importResponse.ok) throw new Error(imported.detail);
-      const inventoryResponse = await fetch(`/api/v1/projects/${project.data.id}/inventory`);
-      const inventory = await inventoryResponse.json();
-      if (!inventoryResponse.ok) throw new Error();
-      setItems(inventory.data.items);
+      await loadCountingData(project.data.id);
       setMessage(
         imported.data.imported
           ? `${imported.data.requirements} Positionen wurden von Rebrickable importiert.`
@@ -84,6 +110,52 @@ function App() {
       setMessage(error instanceof Error && error.message ? error.message : "Der Rebrickable-Import ist fehlgeschlagen.");
     }
   }
+
+  async function selectSession(sessionId: string) {
+    if (!projectId) return;
+    try {
+      await loadCountingData(projectId, sessionId);
+    } catch {
+      setMessage("Der Bereich konnte nicht geladen werden.");
+    }
+  }
+
+  async function adjust(item: InventoryItem, delta: number) {
+    if (!selectedSessionId || !projectId) return;
+    try {
+      const response = await fetch(`/api/v1/sessions/${selectedSessionId}/counts/adjust`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inventory_item_id: item.id, delta, client_mutation_id: crypto.randomUUID() }),
+      });
+      if (!response.ok) throw new Error();
+      await loadCountingData(projectId, selectedSessionId);
+    } catch {
+      setMessage("Die Zählung konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function setQuantity(item: InventoryItem, quantity: number) {
+    if (!selectedSessionId || !projectId || !Number.isInteger(quantity) || quantity < 0) return;
+    try {
+      const response = await fetch(`/api/v1/sessions/${selectedSessionId}/counts/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ quantity, expected_revision: item.session_revision, client_mutation_id: crypto.randomUUID() }),
+      });
+      if (!response.ok) throw new Error();
+      await loadCountingData(projectId, selectedSessionId);
+    } catch {
+      setMessage("Die Menge wurde parallel geändert. Bitte erneut versuchen.");
+      await loadCountingData(projectId, selectedSessionId);
+    }
+  }
+
+  const colors = Array.from(new Map(items.map((item) => [item.color_id, item.color_name])).entries());
+  const visibleItems = items.filter((item) => (
+    (selectedColorId === null || item.color_id === selectedColorId)
+    && `${item.part_num} ${item.part_name}`.toLowerCase().includes(search.toLowerCase())
+  ));
 
   return (
     <main className="startseite">
@@ -105,7 +177,24 @@ function App() {
           <button type="button" onClick={importFromRebrickable}>Von Rebrickable importieren</button>
         </form>
         <p aria-live="polite">{message}</p>
-        {items.length > 0 && <table><thead><tr><th>Teil</th><th>Farbe</th><th>Soll</th><th>Klasse</th></tr></thead><tbody>{items.map((item) => <tr key={`${item.part_num}-${item.color_name}-${item.inventory_class}`}><td>{item.part_num} – {item.part_name}</td><td>{item.color_name}</td><td>{item.expected_qty}</td><td>{item.inventory_class === "spare" ? "Ersatzteil" : "Pflichtteil"}</td></tr>)}</tbody></table>}
+        {projectId && selectedSessionId && (
+          <section className="zaehlbereich" aria-label="Zählbereich">
+            <h2>Bereich auswählen</h2>
+            <div className="tabs" role="tablist" aria-label="Zählbereiche">
+              {sessions.map((session) => <button type="button" role="tab" aria-selected={session.id === selectedSessionId} onClick={() => selectSession(session.id)} key={session.id}>{session.label}</button>)}
+            </div>
+            <div className="filterbar">
+              <label>Suche<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Teilenummer oder Name" /></label>
+              <label>Farbe<select value={selectedColorId ?? ""} onChange={(event) => setSelectedColorId(event.target.value ? Number(event.target.value) : null)}><option value="">Alle Farben</option>{colors.map(([id, name]) => <option key={id} value={id}>Nur: {name}</option>)}</select></label>
+              {selectedColorId !== null && <button type="button" onClick={() => setSelectedColorId(null)}>Filter zurücksetzen</button>}
+            </div>
+            <p className="hinweis">Die Sollmenge gilt für das ganze Set, nicht pro Bereich.</p>
+            <table><thead><tr><th>Teil</th><th>Farbe</th><th>Soll gesamt</th><th>Ist Bereich</th><th>Ist gesamt</th><th>Abweichung</th><th>Zählen</th></tr></thead><tbody>{visibleItems.map((item) => {
+              const delta = item.global_quantity - item.expected_qty;
+              return <tr key={item.id}><td>{item.part_num} – {item.part_name}</td><td>{item.color_name}</td><td>{item.expected_qty}</td><td>{item.session_quantity}</td><td>{item.global_quantity}</td><td>{delta > 0 ? `Überschuss +${delta}` : delta < 0 ? `Vorläufig offen ${-delta}` : "Ausgeglichen"}</td><td><button type="button" aria-label={`-1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, -1)}>−</button><input aria-label={`Menge ${item.part_num} ${item.color_name}`} type="number" min="0" value={item.session_quantity} onChange={(event) => setQuantity(item, Number(event.target.value))} /><button type="button" aria-label={`+1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, 1)}>+</button></td></tr>;
+            })}</tbody></table>
+          </section>
+        )}
       </section>
     </main>
   );

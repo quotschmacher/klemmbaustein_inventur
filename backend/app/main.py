@@ -8,9 +8,17 @@ import httpx
 from pydantic import BaseModel, Field
 from psycopg import connect
 from psycopg.errors import OperationalError
-from sqlalchemy import select
+from sqlalchemy import func, select
 
-from app.db.models import Color, CountingSession, InventoryRequirement, PartCatalog, Project, SessionStatus
+from app.db.models import (
+    Color,
+    CountBalance,
+    CountingSession,
+    InventoryRequirement,
+    PartCatalog,
+    Project,
+    SessionStatus,
+)
 from app.db.session import create_session_factory
 from app.services.counting import CountError, adjust_count, set_count
 from app.services.inventory_import import CsvImportError, create_project, import_csv_inventory
@@ -129,19 +137,60 @@ def import_rebrickable_route(project_id: UUID, response: Response) -> dict[str, 
 
 
 @app.get("/api/v1/projects/{project_id}/inventory")
-def inventory_route(project_id: UUID) -> dict[str, dict[str, object]]:
+def inventory_route(
+    project_id: UUID,
+    session_id: UUID | None = None,
+    color_id: int | None = Query(default=None, ge=0),
+    search: str | None = Query(default=None, max_length=255),
+) -> dict[str, dict[str, object]]:
     factory = create_session_factory()
     with factory() as session:
         project = session.get(Project, project_id)
         if project is None or project.inventory_snapshot_id is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Inventar nicht gefunden.")
-        rows = session.execute(
+        global_counts = (
+            select(
+                CountBalance.requirement_id.label("requirement_id"),
+                func.coalesce(func.sum(CountBalance.quantity), 0).label("global_quantity"),
+            )
+            .join(CountingSession, CountBalance.session_id == CountingSession.id)
+            .where(
+                CountingSession.project_id == project_id,
+                CountingSession.status != SessionStatus.ARCHIVED,
+            )
+            .group_by(CountBalance.requirement_id)
+            .subquery()
+        )
+        statement = (
             select(InventoryRequirement, PartCatalog, Color)
             .join(PartCatalog, InventoryRequirement.part_id == PartCatalog.id)
             .join(Color, InventoryRequirement.color_id == Color.id)
+            .outerjoin(global_counts, global_counts.c.requirement_id == InventoryRequirement.id)
             .where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
-            .order_by(PartCatalog.part_num, Color.provider_color_id)
-        ).all()
+        )
+        if color_id is not None:
+            statement = statement.where(Color.provider_color_id == color_id)
+        if search:
+            term = f"%{search.strip()}%"
+            statement = statement.where(
+                PartCatalog.part_num.ilike(term) | PartCatalog.name.ilike(term)
+            )
+        rows = session.execute(statement.order_by(Color.provider_color_id, PartCatalog.part_num)).all()
+        session_balances = {}
+        if session_id is not None:
+            if session.get(CountingSession, session_id) is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bereich nicht gefunden.")
+            session_balances = {
+                requirement_id: (quantity, revision)
+                for requirement_id, quantity, revision in session.execute(
+                    select(CountBalance.requirement_id, CountBalance.quantity, CountBalance.revision).where(
+                        CountBalance.session_id == session_id
+                    )
+                ).all()
+            }
+        global_quantities = dict(
+            session.execute(select(global_counts.c.requirement_id, global_counts.c.global_quantity)).all()
+        )
     items = [
         {
             "id": str(requirement.id),
@@ -151,6 +200,9 @@ def inventory_route(project_id: UUID) -> dict[str, dict[str, object]]:
             "color_name": color.name,
             "expected_qty": requirement.expected_qty,
             "inventory_class": requirement.inventory_class.value,
+            "session_quantity": int(session_balances.get(requirement.id, (0, 0))[0]),
+            "session_revision": int(session_balances.get(requirement.id, (0, 0))[1]),
+            "global_quantity": int(global_quantities.get(requirement.id, 0)),
         }
         for requirement, part, color in rows
     ]

@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 1 – Setup/Schema | abgeschlossen | Task 01 und 02 abgenommen: Compose, Healthchecks, SQLAlchemy/Alembic-Schema und produktive Migration | keine |
 | 2 – Inventarimport | abgeschlossen | CSV-/Rebrickable-Import, Quellen-/Provenance-Daten und lokale Cache-Wiederverwendung abgenommen | keine |
-| 3 – Zählen/UI | WIP | Task 04/05: Zähl-API und globale Reconciliation mit 21 Backend-Tests abgenommen | Zähloberfläche und Farbfilter in Task 06 |
+| 3 – Zählen/UI | abgeschlossen | Task 04–06: Zähl-API, globale Reconciliation, Zähloberfläche und Farbfilter abgenommen | keine |
 | 4 – Nachbestellung | offen | nicht durchgeführt | CSV/JSON/XML, Zuordnung |
 | 5 – Härtung/Abnahme | offen | nicht durchgeführt | Backup/Restore, End-to-End |
 
@@ -21,7 +21,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 | 03 – Sets, Inventarimport und Quellen | DONE | 14 Backend-Tests; Frontend-Test/Lint/Build; Alembic head; echte lokale Rebrickable-UI-Abnahme mit Cache und Proxy-Timeoutschutz | `933374b fix: Rebrickable-Import ohne Proxy-Timeout` |
 | 04 – Bereiche und Zähl-API | DONE | 18 Backend-Tests; +/−/Direkteingabe, Idempotenz, Revision, Paralleltest und abgeschlossene Bereiche geprüft; Live-API-Smoketest erfolgreich | `f0c47b8 task-04: Bereiche und Zähl-API` |
 | 05 – Gesamtsummen, Fehlmengen und Überschüsse | DONE | 21 Backend-Tests; vorläufige/abschließende Fehlmengen, Überschuss und Spare-Trennung geprüft; Live-Summary/Differences-Smoketest | `00c0472 task-05: Gesamtsummen und Differenzen` |
-| 06 – Zähloberfläche und Farbfilter | TODO | noch keine | – |
+| 06 – Zähloberfläche und Farbfilter | DONE | 22 Backend-Tests; Frontend-Vitest, ESLint und Produktionsbuild erfolgreich | `noch zu committen` |
 | 07 – Gesamtübersicht und Abschlussworkflow | TODO | noch keine | – |
 | 08 – Fehlteile, Bestellungen und Beutelzuordnung | TODO | noch keine | – |
 | 09 – CSV/JSON-Export, Restore und BrickLink | TODO | noch keine | – |
@@ -72,3 +72,11 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - API: `GET /projects/{id}/summary` und `GET /projects/{id}/differences?type=missing|surplus|all`; Zählantworten enthalten zusätzlich globale Abweichung, Fehl-/Überschussmenge und Status.
 - Tests und Abnahme: 21 Backend-Tests sowie Ruff/Alembic head erfolgreich. Der öffentliche Live-Smoke über Port 8080 bestätigte Summen und sofortigen Überschuss.
 - Nächste Task: 06 – Zähloberfläche und Farbfilter.
+
+## Task 06 – 16. November 2026
+
+- Ergebnis: Nach dem CSV- oder Rebrickable-Import zeigt die Oberfläche die Bereiche als auswählbare Tabs und lädt die Zählpositionen für den gewählten Bereich. Jede Zeile hat Soll gesamt, Ist im Bereich, Ist gesamt, globale Abweichung sowie +1, −1 und Direkteingabe.
+- Filter: Die Suche arbeitet nach Teilenummer oder Name. Der Farbfilter blendet ausschließlich eine gewählte Farbe ein; Filterzustand bleibt beim Bereichswechsel erhalten und lässt sich zurücksetzen.
+- API-Abhängigkeit: Der Inventarendpunkt liefert für einen Bereich zusätzlich Bereichsmenge/-revision und globale Menge; er unterstützt serverseitig `session_id`, `color_id` und `search`.
+- Tests und Abnahme: `ruff check .`, 22 Backend-Tests, Alembic head sowie Frontend-Vitest/ESLint/Vite-Build erfolgreich. Die produktive Browser-Abnahme erfolgt nach dem lokalen Commit/Rebuild.
+- Nächste Task: 07 – Gesamtübersicht und Abschlussworkflow.
