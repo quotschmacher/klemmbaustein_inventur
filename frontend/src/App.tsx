@@ -5,7 +5,7 @@ import "./App.css";
 type InventoryItem = { part_num: string; part_name: string; color_name: string; expected_qty: number; inventory_class: string };
 
 function App() {
-  const [setNumber, setSetNumber] = useState("75978-1");
+  const [setNumber, setSetNumber] = useState("75978");
   const [label, setLabel] = useState("Winkelgasse");
   const [file, setFile] = useState<File | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -77,7 +77,7 @@ function App() {
         <p>Lege ein Projekt an und importiere ein CSV-Testinventar.</p>
         <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
         <form onSubmit={importInventory}>
-          <label htmlFor="set-number">Set-Nummer</label>
+          <label htmlFor="set-number">Set-Nummer auf dem Karton</label>
           <input id="set-number" value={setNumber} onChange={(event) => setSetNumber(event.target.value)} required />
           <label htmlFor="project-label">Projektname</label>
           <input id="project-label" value={label} onChange={(event) => setLabel(event.target.value)} required />

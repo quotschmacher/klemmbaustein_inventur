@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 
 import httpx
 from sqlalchemy.orm import Session
@@ -12,6 +13,11 @@ from app.services.rebrickable import RebrickableClient
 from app.services.rebrickable_import import rebrickable_rows
 
 
+def canonical_set_num(entered_set_num: str) -> str:
+    value = entered_set_num.strip()
+    return f"{value}-1" if re.fullmatch(r"\d+", value) else value
+
+
 class RebrickableProjectImporter:
     def __init__(self, client: RebrickableClient) -> None:
         self._client = client
@@ -20,7 +26,7 @@ class RebrickableProjectImporter:
         lego_set = session.get(LegoSet, project.set_id)
         if lego_set is None:
             raise CsvImportError("Das Projekt besitzt kein Set.")
-        set_num = lego_set.provider_set_id
+        set_num = canonical_set_num(lego_set.provider_set_id)
         detail = self._client.fetch_object(f"/api/v3/lego/sets/{set_num}/")
         regular_parts = self._client.fetch_all_pages(
             f"/api/v3/lego/sets/{set_num}/parts/?inc_minifig_parts=0"
