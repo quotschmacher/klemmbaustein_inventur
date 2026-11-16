@@ -23,6 +23,19 @@ type ProjectSummary = {
   provisional_gap_units: number;
   confirmed_missing_units: number;
 };
+type DifferenceItem = { id: string; part_num: string; part_name: string; color_name: string; missing_quantity: number };
+type ReplacementItem = {
+  id: string;
+  requirement_id: string;
+  part_num: string;
+  part_name: string;
+  color_name: string;
+  qty_ordered: number;
+  qty_received: number;
+  qty_booked: number;
+  target_session_id: string | null;
+  status: string;
+};
 
 function _sessionLabels(areas: string): string[] | undefined {
   const labels = areas.split(",").map((value) => value.trim()).filter(Boolean);
@@ -38,11 +51,15 @@ function App() {
   const [sessions, setSessions] = useState<CountingSession[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [targetSessionId, setTargetSessionId] = useState<string | null>(null);
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"overview" | "count">("overview");
+  const [view, setView] = useState<"overview" | "count" | "orders">("overview");
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [surplusItems, setSurplusItems] = useState<Array<{ id: string; part_num: string; part_name: string; color_name: string; surplus_quantity: number }>>([]);
+  const [missingItems, setMissingItems] = useState<DifferenceItem[]>([]);
+  const [missingFinal, setMissingFinal] = useState(false);
+  const [replacements, setReplacements] = useState<ReplacementItem[]>([]);
   const [message, setMessage] = useState("CSV-Testinventar importieren oder ein eigenes Projekt anlegen.");
 
   async function loadCountingData(nextProjectId: string, nextSessionId?: string) {
@@ -56,6 +73,7 @@ function App() {
     setProjectId(nextProjectId);
     setSessions(sessionData.data);
     setSelectedSessionId(sessionId);
+    setTargetSessionId((current) => current ?? sessionId);
     setItems(inventory.data.items);
   }
 
@@ -69,6 +87,19 @@ function App() {
     if (!summaryResponse.ok || !surplusResponse.ok) throw new Error();
     setSummary(summaryData.data);
     setSurplusItems(surplusData.data.items);
+  }
+
+  async function loadOrders(nextProjectId: string) {
+    const [missingResponse, replacementsResponse] = await Promise.all([
+      fetch(`/api/v1/projects/${nextProjectId}/differences?type=missing`),
+      fetch(`/api/v1/projects/${nextProjectId}/replacements`),
+    ]);
+    const missingData = await missingResponse.json();
+    const replacementsData = await replacementsResponse.json();
+    if (!missingResponse.ok || !replacementsResponse.ok) throw new Error();
+    setMissingFinal(missingData.data.final);
+    setMissingItems(missingData.data.items);
+    setReplacements(replacementsData.data);
   }
 
   async function importInventory(event: FormEvent<HTMLFormElement>) {
@@ -96,6 +127,7 @@ function App() {
       if (!importResponse.ok) throw new Error();
       await loadCountingData(project.data.id);
       await loadOverview(project.data.id);
+      await loadOrders(project.data.id);
       setView("overview");
       setMessage(`${imported.data.requirements} Positionen wurden importiert.`);
     } catch {
@@ -126,6 +158,7 @@ function App() {
       if (!importResponse.ok) throw new Error(imported.detail);
       await loadCountingData(project.data.id);
       await loadOverview(project.data.id);
+      await loadOrders(project.data.id);
       setView("overview");
       setMessage(
         imported.data.imported
@@ -191,8 +224,56 @@ function App() {
       if (!response.ok) throw new Error();
       await loadCountingData(projectId, selectedSessionId ?? session.id);
       await loadOverview(projectId);
+      await loadOrders(projectId);
     } catch {
       setMessage("Der Bereichsstatus konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function createReplacement(item: DifferenceItem) {
+    if (!projectId) return;
+    try {
+      const response = await fetch(`/api/v1/projects/${projectId}/replacements`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirement_id: item.id, qty_ordered: item.missing_quantity, target_session_id: targetSessionId }),
+      });
+      if (!response.ok) throw new Error();
+      await loadOrders(projectId);
+    } catch {
+      setMessage("Die Bestellung konnte nicht angelegt werden.");
+    }
+  }
+
+  async function receiveReplacement(item: ReplacementItem, quantity: number) {
+    if (!projectId || !Number.isInteger(quantity) || quantity < item.qty_booked) return;
+    try {
+      const response = await fetch(`/api/v1/projects/${projectId}/replacements/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qty_received: quantity, status: quantity > 0 ? "received" : "ordered" }),
+      });
+      if (!response.ok) throw new Error();
+      await loadOrders(projectId);
+    } catch {
+      setMessage("Der Wareneingang konnte nicht gespeichert werden.");
+    }
+  }
+
+  async function bookReplacement(item: ReplacementItem) {
+    if (!projectId || !targetSessionId || item.qty_received <= item.qty_booked) return;
+    try {
+      const response = await fetch(`/api/v1/replacements/${item.id}/book-into-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: targetSessionId, quantity: item.qty_received - item.qty_booked, client_mutation_id: crypto.randomUUID() }),
+      });
+      if (!response.ok) throw new Error();
+      await loadCountingData(projectId, targetSessionId);
+      await loadOverview(projectId);
+      await loadOrders(projectId);
+    } catch {
+      setMessage("Der Ersatz konnte nicht in den Bereich eingebucht werden.");
     }
   }
 
@@ -203,6 +284,9 @@ function App() {
     setItems([]);
     setSummary(null);
     setSurplusItems([]);
+    setMissingItems([]);
+    setReplacements([]);
+    setTargetSessionId(null);
     setSelectedColorId(null);
     setSearch("");
     setMessage("Lege ein weiteres Projekt an und importiere dessen Inventar.");
@@ -239,6 +323,7 @@ function App() {
             <nav className="projektnavigation" aria-label="Projektseiten">
               <button type="button" aria-current={view === "overview" ? "page" : undefined} onClick={() => setView("overview")}>Übersicht</button>
               <button type="button" aria-current={view === "count" ? "page" : undefined} onClick={() => setView("count")}>Zählen</button>
+              <button type="button" aria-current={view === "orders" ? "page" : undefined} onClick={() => setView("orders")}>Fehlteile & Bestellungen</button>
               <button type="button" onClick={startNewProject}>Neues Set importieren</button>
             </nav>
             {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
@@ -251,6 +336,14 @@ function App() {
               <h3>Bereiche</h3>
               <div className="bereichskarten">{sessions.map((session) => <article key={session.id}><h4>{session.label}</h4><p>{session.status === "completed" ? "Abgeschlossen" : "In Bearbeitung"} · {session.counted_positions} Positionen erfasst</p><button type="button" onClick={() => { setView("count"); selectSession(session.id); }}>Fortsetzen</button>{session.status === "completed" ? <button type="button" onClick={() => setSessionStatus(session, "in_progress")}>Wieder öffnen</button> : <button type="button" onClick={() => setSessionStatus(session, "completed")}>Abschließen</button>}</article>)}</div>
               {surplusItems.length > 0 && <section className="differenzen"><h3>Aktueller globaler Überschuss</h3><ul>{surplusItems.map((item) => <li key={item.id}>{item.part_num} – {item.part_name}, {item.color_name}: +{item.surplus_quantity}</li>)}</ul></section>}
+            </section>}
+            {view === "orders" && <section className="bestellungen" aria-label="Fehlteile und Bestellungen">
+              <h2>Fehlteile & Bestellungen</h2>
+              <label>Zielbereich (manuelle Zuordnung)<select value={targetSessionId ?? ""} onChange={(event) => setTargetSessionId(event.target.value || null)}><option value="">Noch nicht zuordnen</option>{sessions.map((session) => <option key={session.id} value={session.id}>{session.label}</option>)}</select></label>
+              {!missingFinal && <p className="hinweis">Fehlteile werden erst nach Abschluss aller Pflichtbereiche als bestellbar angezeigt. Die aktuelle Differenz ist noch vorläufig.</p>}
+              {missingFinal && <section><h3>Bestellbare Fehlteile</h3>{missingItems.length === 0 ? <p>Keine bestätigten Fehlteile.</p> : <ul className="positionsliste">{missingItems.map((item) => <li key={item.id}><span>{item.part_num} – {item.part_name}, {item.color_name}: {item.missing_quantity} fehlen</span><button type="button" onClick={() => createReplacement(item)}>Bestellung anlegen</button></li>)}</ul>}</section>}
+              <section><h3>Bestellungen</h3>{replacements.length === 0 ? <p>Noch keine Bestellpositionen.</p> : <ul className="positionsliste">{replacements.map((item) => <li key={item.id}><span>{item.part_num} – {item.part_name}, {item.color_name}: bestellt {item.qty_ordered}, erhalten {item.qty_received}, eingebucht {item.qty_booked}</span><label>Erhalten<input aria-label={`Erhalten ${item.part_num}`} type="number" min={item.qty_booked} value={item.qty_received} onChange={(event) => receiveReplacement(item, Number(event.target.value))} /></label>{item.qty_received > item.qty_booked && <button type="button" onClick={() => bookReplacement(item)}>In Zielbereich einbuchen</button>}</li>)}</ul>}</section>
+              <p className="hinweis">Die Zielbereich-Zuordnung ist eine manuelle organisatorische Entscheidung und kein Nachweis, wo das Teil ursprünglich gefehlt hat.</p>
             </section>}
             {view === "count" && <section className="zaehlbereich" aria-label="Zählbereich">
               <h2>Bereich auswählen</h2>

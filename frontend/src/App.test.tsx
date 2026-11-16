@@ -33,6 +33,8 @@ test("zeigt nach dem Import die Gesamtübersicht", async () => {
     { data: { total: 0, items: [] } },
     { data: { required_sessions_total: 1, required_sessions_completed: 0, surplus_types: 0, provisional_gap_units: 2, confirmed_missing_units: 0 } },
     { data: { items: [] } },
+    { data: { final: false, items: [] } },
+    { data: [] },
   ];
   vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: true, json: () => Promise.resolve(responses.shift()) })));
   render(<App />);

@@ -25,6 +25,14 @@ from app.services.inventory_import import CsvImportError, create_project, import
 from app.services.rebrickable import RebrickableClient, RebrickableImportError
 from app.services.rebrickable_project_import import RebrickableProjectImporter
 from app.services.reconciliation import ReconciliationError, difference_items, project_reconciliation
+from app.services.replacements import (
+    ReplacementError,
+    book_replacement,
+    create_replacement,
+    replacement_item_data,
+    replacement_items,
+    update_replacement,
+)
 
 app = FastAPI(title="LEGO Inventur API", version="0.1.0")
 
@@ -57,6 +65,26 @@ class CountAdjustRequest(BaseModel):
 class CountSetRequest(BaseModel):
     quantity: int = Field(ge=0)
     expected_revision: int = Field(ge=0)
+    client_mutation_id: UUID
+
+
+class ReplacementCreateRequest(BaseModel):
+    requirement_id: UUID
+    qty_ordered: int = Field(ge=1, le=10000)
+    target_session_id: UUID | None = None
+    notes: str | None = Field(default=None, max_length=2000)
+
+
+class ReplacementPatchRequest(BaseModel):
+    qty_ordered: int | None = Field(default=None, ge=0, le=10000)
+    qty_received: int | None = Field(default=None, ge=0, le=10000)
+    target_session_id: UUID | None = None
+    status: Literal["planned", "ordered", "received", "packed"] | None = None
+
+
+class ReplacementBookingRequest(BaseModel):
+    session_id: UUID
+    quantity: int = Field(ge=1, le=10000)
     client_mutation_id: UUID
 
 
@@ -254,6 +282,64 @@ def differences_route(
     except ReconciliationError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
     return {"data": {"final": final, "items": items}}
+
+
+@app.get("/api/v1/projects/{project_id}/replacements")
+def list_replacements_route(project_id: UUID) -> dict[str, list[dict[str, object]]]:
+    factory = create_session_factory()
+    with factory() as db:
+        return {"data": replacement_items(db, project_id)}
+
+
+@app.post("/api/v1/projects/{project_id}/replacements", status_code=status.HTTP_201_CREATED)
+def create_replacement_route(
+    project_id: UUID, payload: ReplacementCreateRequest
+) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            item = create_replacement(db, project_id=project_id, **payload.model_dump())
+            data = replacement_item_data(db, project_id, item.id)
+    except ReplacementError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    return {"data": data}
+
+
+@app.patch("/api/v1/projects/{project_id}/replacements/{replacement_id}")
+def patch_replacement_route(
+    project_id: UUID, replacement_id: UUID, payload: ReplacementPatchRequest
+) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            item = update_replacement(
+                db, project_id=project_id, item_id=replacement_id, **payload.model_dump(exclude_none=True)
+            )
+            data = replacement_item_data(db, project_id, item.id)
+    except ReplacementError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    return {"data": data}
+
+
+@app.post("/api/v1/replacements/{replacement_id}/book-into-session")
+def book_replacement_route(
+    replacement_id: UUID, payload: ReplacementBookingRequest
+) -> dict[str, dict[str, int | str]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            result = book_replacement(
+                db,
+                item_id=replacement_id,
+                session_id=payload.session_id,
+                quantity=payload.quantity,
+                mutation_id=payload.client_mutation_id,
+            )
+    except ReplacementError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    except CountError as error:
+        _count_error(error)
+    return {"data": result}
 
 
 @app.post("/api/v1/projects/{project_id}/sessions", status_code=status.HTTP_201_CREATED)
