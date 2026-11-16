@@ -22,6 +22,7 @@ app = FastAPI(title="LEGO Inventur API", version="0.1.0")
 class ProjectCreateRequest(BaseModel):
     set_num: str = Field(min_length=1, max_length=100)
     label: str = Field(min_length=1, max_length=500)
+    session_labels: list[str] | None = Field(default=None, max_length=20)
 
 
 class SessionCreateRequest(BaseModel):
@@ -78,7 +79,7 @@ async def health() -> dict[str, dict[str, str]]:
 def create_project_route(payload: ProjectCreateRequest) -> dict[str, dict[str, str]]:
     factory = create_session_factory()
     with factory.begin() as session:
-        project = create_project(session, payload.set_num, payload.label)
+        project = create_project(session, payload.set_num, payload.label, payload.session_labels)
         return {"data": {"id": str(project.id)}}
 
 

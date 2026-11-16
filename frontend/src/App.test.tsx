@@ -9,6 +9,7 @@ test("zeigt die Startseite der LEGO-Inventur", () => {
   expect(screen.getByRole("heading", { name: "LEGO Inventur" })).toBeInTheDocument();
   expect(screen.getByLabelText("Set-Nummer auf dem Karton")).toBeInTheDocument();
   expect(screen.getByLabelText("Set-Nummer auf dem Karton")).toHaveValue("75978");
+  expect(screen.getByLabelText("Bereiche (optional, durch Komma getrennt)")).toBeInTheDocument();
   expect(screen.getByLabelText("CSV-Inventar")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Inventar importieren" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Von Rebrickable importieren" })).toBeInTheDocument();

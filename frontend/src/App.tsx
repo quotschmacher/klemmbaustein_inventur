@@ -4,9 +4,15 @@ import "./App.css";
 
 type InventoryItem = { part_num: string; part_name: string; color_name: string; expected_qty: number; inventory_class: string };
 
+function _sessionLabels(areas: string): string[] | undefined {
+  const labels = areas.split(",").map((value) => value.trim()).filter(Boolean);
+  return labels.length > 0 ? labels : undefined;
+}
+
 function App() {
   const [setNumber, setSetNumber] = useState("75978");
   const [label, setLabel] = useState("Winkelgasse");
+  const [areas, setAreas] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [message, setMessage] = useState("CSV-Testinventar importieren oder ein eigenes Projekt anlegen.");
@@ -22,7 +28,7 @@ function App() {
       const projectResponse = await fetch("/api/v1/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ set_num: setNumber, label }),
+        body: JSON.stringify({ set_num: setNumber, label, session_labels: _sessionLabels(areas) }),
       });
       const project = await projectResponse.json();
       if (!projectResponse.ok) throw new Error();
@@ -50,7 +56,7 @@ function App() {
       const projectResponse = await fetch("/api/v1/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ set_num: setNumber, label }),
+        body: JSON.stringify({ set_num: setNumber, label, session_labels: _sessionLabels(areas) }),
       });
       const project = await projectResponse.json();
       if (!projectResponse.ok) throw new Error();
@@ -91,6 +97,8 @@ function App() {
           <input id="set-number" value={setNumber} onChange={(event) => setSetNumber(event.target.value)} required />
           <label htmlFor="project-label">Projektname</label>
           <input id="project-label" value={label} onChange={(event) => setLabel(event.target.value)} required />
+          <label htmlFor="areas">Bereiche (optional, durch Komma getrennt)</label>
+          <input id="areas" value={areas} placeholder="z. B. Anleitung 1, Anleitung 2" onChange={(event) => setAreas(event.target.value)} />
           <label htmlFor="inventory-file">CSV-Inventar</label>
           <input id="inventory-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
           <button type="submit">Inventar importieren</button>

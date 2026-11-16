@@ -183,7 +183,9 @@ def import_inventory_rows(
     return True, len(rows)
 
 
-def create_project(session: Session, set_num: str, label: str) -> Project:
+def create_project(
+    session: Session, set_num: str, label: str, session_labels: list[str] | None = None
+) -> Project:
     lego_set = session.scalar(
         select(LegoSet).where(LegoSet.provider == "csv", LegoSet.provider_set_id == set_num)
     )
@@ -194,9 +196,8 @@ def create_project(session: Session, set_num: str, label: str) -> Project:
     project = Project(set_id=lego_set.id, label=label, status=ProjectStatus.PENDING_IMPORT)
     session.add(project)
     session.flush()
-    for position, session_label in enumerate(
-        ("Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Minifiguren")
-    ):
+    labels = _session_labels_for_new_project(set_num, session_labels)
+    for position, session_label in enumerate(labels):
         session.add(
             CountingSession(
                 project_id=project.id,
@@ -207,3 +208,14 @@ def create_project(session: Session, set_num: str, label: str) -> Project:
             )
         )
     return project
+
+
+def _session_labels_for_new_project(set_num: str, session_labels: list[str] | None) -> list[str]:
+    if session_labels:
+        labels = [label.strip() for label in session_labels if label.strip()]
+        if not labels or len(labels) != len(set(labels)):
+            raise CsvImportError("Bereichsnamen müssen eindeutig und nicht leer sein.")
+        return labels
+    if set_num.strip().removesuffix("-1") == "75978":
+        return ["Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Minifiguren"]
+    return ["Unsortiert"]

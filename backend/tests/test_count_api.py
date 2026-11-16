@@ -14,7 +14,7 @@ def test_default_sessions_and_count_mutations_are_idempotent() -> None:
     client = TestClient(app)
     project = client.post(
         "/api/v1/projects",
-        json={"set_num": f"count-{uuid4()}", "label": "Zähltest"},
+        json={"set_num": "75978", "label": "Zähltest"},
     ).json()["data"]
     sessions = client.get(f"/api/v1/projects/{project['id']}/sessions")
     assert [item["label"] for item in sessions.json()["data"]] == [
@@ -42,6 +42,30 @@ def test_default_sessions_and_count_mutations_are_idempotent() -> None:
     assert first.json()["data"]["session_quantity"] == 1
     assert duplicate.status_code == 200
     assert duplicate.json()["data"]["session_quantity"] == 1
+
+
+def test_other_sets_start_with_one_flexible_area_or_custom_labels() -> None:
+    client = TestClient(app)
+    generic_project = client.post(
+        "/api/v1/projects",
+        json={"set_num": f"generic-{uuid4()}", "label": "Generisches Set"},
+    ).json()["data"]
+    custom_project = client.post(
+        "/api/v1/projects",
+        json={
+            "set_num": f"custom-{uuid4()}",
+            "label": "Sechs Anleitungen",
+            "session_labels": ["Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Anleitung 5", "Anleitung 6"],
+        },
+    ).json()["data"]
+
+    generic_sessions = client.get(f"/api/v1/projects/{generic_project['id']}/sessions").json()["data"]
+    custom_sessions = client.get(f"/api/v1/projects/{custom_project['id']}/sessions").json()["data"]
+
+    assert [item["label"] for item in generic_sessions] == ["Unsortiert"]
+    assert [item["label"] for item in custom_sessions] == [
+        "Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Anleitung 5", "Anleitung 6"
+    ]
 
 
 def test_count_cannot_become_negative_and_absolute_update_checks_revision() -> None:
