@@ -1,8 +1,9 @@
 import asyncio
 import os
+from typing import Literal
 from uuid import UUID
 
-from fastapi import FastAPI, File, HTTPException, Response, UploadFile, status
+from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile, status
 import httpx
 from pydantic import BaseModel, Field
 from psycopg import connect
@@ -15,6 +16,7 @@ from app.services.counting import CountError, adjust_count, set_count
 from app.services.inventory_import import CsvImportError, create_project, import_csv_inventory
 from app.services.rebrickable import RebrickableClient, RebrickableImportError
 from app.services.rebrickable_project_import import RebrickableProjectImporter
+from app.services.reconciliation import ReconciliationError, difference_items, project_reconciliation
 
 app = FastAPI(title="LEGO Inventur API", version="0.1.0")
 
@@ -167,6 +169,31 @@ def list_sessions_route(project_id: UUID) -> dict[str, list[dict[str, object]]]:
     return {"data": [_session_data(item) for item in sessions]}
 
 
+@app.get("/api/v1/projects/{project_id}/summary")
+def summary_route(project_id: UUID) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    try:
+        with factory() as db:
+            summary, _ = project_reconciliation(db, project_id)
+    except ReconciliationError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return {"data": summary}
+
+
+@app.get("/api/v1/projects/{project_id}/differences")
+def differences_route(
+    project_id: UUID,
+    type: Literal["missing", "surplus", "all"] = Query(default="all"),
+) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    try:
+        with factory() as db:
+            final, items = difference_items(db, project_id, type)
+    except ReconciliationError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return {"data": {"final": final, "items": items}}
+
+
 @app.post("/api/v1/projects/{project_id}/sessions", status_code=status.HTTP_201_CREATED)
 def create_session_route(project_id: UUID, payload: SessionCreateRequest) -> dict[str, dict[str, object]]:
     factory = create_session_factory()
@@ -193,7 +220,7 @@ def patch_session_route(session_id: UUID, payload: SessionPatchRequest) -> dict[
 
 
 @app.post("/api/v1/sessions/{session_id}/counts/adjust")
-def adjust_count_route(session_id: UUID, payload: CountAdjustRequest) -> dict[str, dict[str, int]]:
+def adjust_count_route(session_id: UUID, payload: CountAdjustRequest) -> dict[str, dict[str, int | str]]:
     factory = create_session_factory()
     try:
         with factory.begin() as db:
@@ -212,7 +239,7 @@ def adjust_count_route(session_id: UUID, payload: CountAdjustRequest) -> dict[st
 @app.put("/api/v1/sessions/{session_id}/counts/{inventory_item_id}")
 def set_count_route(
     session_id: UUID, inventory_item_id: UUID, payload: CountSetRequest
-) -> dict[str, dict[str, int]]:
+) -> dict[str, dict[str, int | str]]:
     factory = create_session_factory()
     try:
         with factory.begin() as db:

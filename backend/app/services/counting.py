@@ -25,7 +25,7 @@ class CountError(ValueError):
 
 def adjust_count(
     db: Session, *, session_id: UUID, requirement_id: UUID, delta: int, mutation_id: UUID
-) -> dict[str, int]:
+) -> dict[str, int | str]:
     session, requirement = _validated_entities(db, session_id, requirement_id)
     existing = db.scalar(
         select(CountEvent).where(
@@ -69,7 +69,7 @@ def set_count(
     quantity: int,
     expected_revision: int,
     mutation_id: UUID,
-) -> dict[str, int]:
+) -> dict[str, int | str]:
     session, requirement = _validated_entities(db, session_id, requirement_id)
     existing = db.scalar(
         select(CountEvent).where(
@@ -148,18 +148,27 @@ def _result(
     requirement: InventoryRequirement,
     session_quantity: int,
     revision: int,
-) -> dict[str, int]:
+) -> dict[str, int | str]:
     global_quantity = db.scalar(
         select(func.coalesce(func.sum(CountBalance.quantity), 0))
         .join(CountingSession, CountBalance.session_id == CountingSession.id)
         .where(
             CountBalance.requirement_id == requirement.id,
+            CountingSession.project_id == session.project_id,
             CountingSession.status != SessionStatus.ARCHIVED,
         )
     )
+    global_quantity = int(global_quantity or 0)
+    delta_global = global_quantity - requirement.expected_qty
+    missing_quantity = max(0, -delta_global)
+    surplus_quantity = max(0, delta_global)
     return {
         "session_quantity": session_quantity,
-        "global_quantity": int(global_quantity or 0),
+        "global_quantity": global_quantity,
         "expected_quantity": requirement.expected_qty,
+        "delta_global": delta_global,
+        "missing_quantity": missing_quantity,
+        "surplus_quantity": surplus_quantity,
         "session_revision": revision,
+        "status": "surplus" if surplus_quantity else "provisional_gap" if missing_quantity else "counted",
     }
