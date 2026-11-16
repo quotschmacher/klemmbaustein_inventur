@@ -15,7 +15,14 @@ type InventoryItem = {
   global_quantity: number;
 };
 
-type CountingSession = { id: string; label: string; status: string };
+type CountingSession = { id: string; label: string; status: string; counted_positions: number };
+type ProjectSummary = {
+  required_sessions_total: number;
+  required_sessions_completed: number;
+  surplus_types: number;
+  provisional_gap_units: number;
+  confirmed_missing_units: number;
+};
 
 function _sessionLabels(areas: string): string[] | undefined {
   const labels = areas.split(",").map((value) => value.trim()).filter(Boolean);
@@ -33,6 +40,9 @@ function App() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"overview" | "count">("overview");
+  const [summary, setSummary] = useState<ProjectSummary | null>(null);
+  const [surplusItems, setSurplusItems] = useState<Array<{ id: string; part_num: string; part_name: string; color_name: string; surplus_quantity: number }>>([]);
   const [message, setMessage] = useState("CSV-Testinventar importieren oder ein eigenes Projekt anlegen.");
 
   async function loadCountingData(nextProjectId: string, nextSessionId?: string) {
@@ -47,6 +57,18 @@ function App() {
     setSessions(sessionData.data);
     setSelectedSessionId(sessionId);
     setItems(inventory.data.items);
+  }
+
+  async function loadOverview(nextProjectId: string) {
+    const [summaryResponse, surplusResponse] = await Promise.all([
+      fetch(`/api/v1/projects/${nextProjectId}/summary`),
+      fetch(`/api/v1/projects/${nextProjectId}/differences?type=surplus`),
+    ]);
+    const summaryData = await summaryResponse.json();
+    const surplusData = await surplusResponse.json();
+    if (!summaryResponse.ok || !surplusResponse.ok) throw new Error();
+    setSummary(summaryData.data);
+    setSurplusItems(surplusData.data.items);
   }
 
   async function importInventory(event: FormEvent<HTMLFormElement>) {
@@ -73,6 +95,8 @@ function App() {
       const imported = await importResponse.json();
       if (!importResponse.ok) throw new Error();
       await loadCountingData(project.data.id);
+      await loadOverview(project.data.id);
+      setView("overview");
       setMessage(`${imported.data.requirements} Positionen wurden importiert.`);
     } catch {
       setMessage("Der Import ist fehlgeschlagen. Bitte prüfe die CSV-Datei.");
@@ -101,6 +125,8 @@ function App() {
       }
       if (!importResponse.ok) throw new Error(imported.detail);
       await loadCountingData(project.data.id);
+      await loadOverview(project.data.id);
+      setView("overview");
       setMessage(
         imported.data.imported
           ? `${imported.data.requirements} Positionen wurden von Rebrickable importiert.`
@@ -130,6 +156,7 @@ function App() {
       });
       if (!response.ok) throw new Error();
       await loadCountingData(projectId, selectedSessionId);
+      await loadOverview(projectId);
     } catch {
       setMessage("Die Zählung konnte nicht gespeichert werden.");
     }
@@ -145,9 +172,27 @@ function App() {
       });
       if (!response.ok) throw new Error();
       await loadCountingData(projectId, selectedSessionId);
+      await loadOverview(projectId);
     } catch {
       setMessage("Die Menge wurde parallel geändert. Bitte erneut versuchen.");
       await loadCountingData(projectId, selectedSessionId);
+    }
+  }
+
+  async function setSessionStatus(session: CountingSession, nextStatus: "completed" | "in_progress") {
+    if (!projectId) return;
+    if (nextStatus === "completed" && !window.confirm(`Bereich „${session.label}“ wirklich abschließen? Danach sind Zählungen gesperrt, bis du ihn wieder öffnest.`)) return;
+    try {
+      const response = await fetch(`/api/v1/sessions/${session.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      if (!response.ok) throw new Error();
+      await loadCountingData(projectId, selectedSessionId ?? session.id);
+      await loadOverview(projectId);
+    } catch {
+      setMessage("Der Bereichsstatus konnte nicht gespeichert werden.");
     }
   }
 
@@ -178,21 +223,29 @@ function App() {
         </form>
         <p aria-live="polite">{message}</p>
         {projectId && selectedSessionId && (
-          <section className="zaehlbereich" aria-label="Zählbereich">
-            <h2>Bereich auswählen</h2>
-            <div className="tabs" role="tablist" aria-label="Zählbereiche">
-              {sessions.map((session) => <button type="button" role="tab" aria-selected={session.id === selectedSessionId} onClick={() => selectSession(session.id)} key={session.id}>{session.label}</button>)}
-            </div>
-            <div className="filterbar">
-              <label>Suche<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Teilenummer oder Name" /></label>
-              <label>Farbe<select value={selectedColorId ?? ""} onChange={(event) => setSelectedColorId(event.target.value ? Number(event.target.value) : null)}><option value="">Alle Farben</option>{colors.map(([id, name]) => <option key={id} value={id}>Nur: {name}</option>)}</select></label>
-              {selectedColorId !== null && <button type="button" onClick={() => setSelectedColorId(null)}>Filter zurücksetzen</button>}
-            </div>
-            <p className="hinweis">Die Sollmenge gilt für das ganze Set, nicht pro Bereich.</p>
-            <table><thead><tr><th>Teil</th><th>Farbe</th><th>Soll gesamt</th><th>Ist Bereich</th><th>Ist gesamt</th><th>Abweichung</th><th>Zählen</th></tr></thead><tbody>{visibleItems.map((item) => {
-              const delta = item.global_quantity - item.expected_qty;
-              return <tr key={item.id}><td>{item.part_num} – {item.part_name}</td><td>{item.color_name}</td><td>{item.expected_qty}</td><td>{item.session_quantity}</td><td>{item.global_quantity}</td><td>{delta > 0 ? `Überschuss +${delta}` : delta < 0 ? `Vorläufig offen ${-delta}` : "Ausgeglichen"}</td><td><button type="button" aria-label={`-1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, -1)}>−</button><input aria-label={`Menge ${item.part_num} ${item.color_name}`} type="number" min="0" value={item.session_quantity} onChange={(event) => setQuantity(item, Number(event.target.value))} /><button type="button" aria-label={`+1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, 1)}>+</button></td></tr>;
-            })}</tbody></table>
+          <section className="arbeitsbereich" aria-label="Projektansicht">
+            <nav className="projektnavigation" aria-label="Projektseiten">
+              <button type="button" aria-current={view === "overview" ? "page" : undefined} onClick={() => setView("overview")}>Übersicht</button>
+              <button type="button" aria-current={view === "count" ? "page" : undefined} onClick={() => setView("count")}>Zählen</button>
+            </nav>
+            {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
+              <h2>Gesamtübersicht</h2>
+              <div className="kennzahlen">
+                <article><h3>Noch offene Zählbereiche</h3><strong>{summary.required_sessions_total - summary.required_sessions_completed}</strong><span>von {summary.required_sessions_total}</span></article>
+                <article><h3>Aktueller globaler Überschuss</h3><strong>{summary.surplus_types}</strong><span>Teilearten</span></article>
+                <article><h3>{summary.confirmed_missing_units > 0 ? "Bestätigte Fehlteile" : "Vorläufige Differenz"}</h3><strong>{summary.confirmed_missing_units || summary.provisional_gap_units}</strong><span>{summary.confirmed_missing_units > 0 ? "Teile fehlen" : "noch offen"}</span></article>
+              </div>
+              <h3>Bereiche</h3>
+              <div className="bereichskarten">{sessions.map((session) => <article key={session.id}><h4>{session.label}</h4><p>{session.status === "completed" ? "Abgeschlossen" : "In Bearbeitung"} · {session.counted_positions} Positionen erfasst</p><button type="button" onClick={() => { setView("count"); selectSession(session.id); }}>Fortsetzen</button>{session.status === "completed" ? <button type="button" onClick={() => setSessionStatus(session, "in_progress")}>Wieder öffnen</button> : <button type="button" onClick={() => setSessionStatus(session, "completed")}>Abschließen</button>}</article>)}</div>
+              {surplusItems.length > 0 && <section className="differenzen"><h3>Aktueller globaler Überschuss</h3><ul>{surplusItems.map((item) => <li key={item.id}>{item.part_num} – {item.part_name}, {item.color_name}: +{item.surplus_quantity}</li>)}</ul></section>}
+            </section>}
+            {view === "count" && <section className="zaehlbereich" aria-label="Zählbereich">
+              <h2>Bereich auswählen</h2>
+              <div className="tabs" role="tablist" aria-label="Zählbereiche">{sessions.map((session) => <button type="button" role="tab" aria-selected={session.id === selectedSessionId} onClick={() => selectSession(session.id)} key={session.id}>{session.label}</button>)}</div>
+              <div className="filterbar"><label>Suche<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Teilenummer oder Name" /></label><label>Farbe<select value={selectedColorId ?? ""} onChange={(event) => setSelectedColorId(event.target.value ? Number(event.target.value) : null)}><option value="">Alle Farben</option>{colors.map(([id, name]) => <option key={id} value={id}>Nur: {name}</option>)}</select></label>{selectedColorId !== null && <button type="button" onClick={() => setSelectedColorId(null)}>Filter zurücksetzen</button>}</div>
+              <p className="hinweis">Die Sollmenge gilt für das ganze Set, nicht pro Bereich.</p>
+              <div className="tabellenrahmen"><table><thead><tr><th>Teil</th><th>Farbe</th><th>Soll</th><th>Bereich</th><th>Gesamt</th><th>Abweichung</th><th>Zählen</th></tr></thead><tbody>{visibleItems.map((item) => { const delta = item.global_quantity - item.expected_qty; return <tr key={item.id}><td>{item.part_num} – {item.part_name}</td><td>{item.color_name}</td><td>{item.expected_qty}</td><td>{item.session_quantity}</td><td>{item.global_quantity}</td><td>{delta > 0 ? `Überschuss +${delta}` : delta < 0 ? `Vorläufig offen ${-delta}` : "Ausgeglichen"}</td><td><button type="button" aria-label={`-1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, -1)}>−</button><input aria-label={`Menge ${item.part_num} ${item.color_name}`} type="number" min="0" value={item.session_quantity} onChange={(event) => setQuantity(item, Number(event.target.value))} /><button type="button" aria-label={`+1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, 1)}>+</button></td></tr>; })}</tbody></table></div>
+            </section>}
           </section>
         )}
       </section>

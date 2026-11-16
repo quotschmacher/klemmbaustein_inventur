@@ -213,12 +213,22 @@ def inventory_route(
 def list_sessions_route(project_id: UUID) -> dict[str, list[dict[str, object]]]:
     factory = create_session_factory()
     with factory() as db:
-        sessions = db.scalars(
-            select(CountingSession)
+        counted_positions = (
+            select(
+                CountBalance.session_id.label("session_id"),
+                func.count(CountBalance.requirement_id).label("counted_positions"),
+            )
+            .where(CountBalance.quantity > 0)
+            .group_by(CountBalance.session_id)
+            .subquery()
+        )
+        rows = db.execute(
+            select(CountingSession, func.coalesce(counted_positions.c.counted_positions, 0))
+            .outerjoin(counted_positions, counted_positions.c.session_id == CountingSession.id)
             .where(CountingSession.project_id == project_id)
             .order_by(CountingSession.position)
         ).all()
-    return {"data": [_session_data(item) for item in sessions]}
+    return {"data": [_session_data(item, int(counted)) for item, counted in rows]}
 
 
 @app.get("/api/v1/projects/{project_id}/summary")
@@ -308,13 +318,14 @@ def set_count_route(
     return {"data": result}
 
 
-def _session_data(session: CountingSession) -> dict[str, object]:
+def _session_data(session: CountingSession, counted_positions: int = 0) -> dict[str, object]:
     return {
         "id": str(session.id),
         "label": session.label,
         "position": session.position,
         "mandatory": session.mandatory,
         "status": session.status.value,
+        "counted_positions": counted_positions,
     }
 
 
