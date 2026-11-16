@@ -35,3 +35,23 @@ def test_inventory_filters_to_exact_color_and_includes_selected_session_count() 
     assert filtered["items"][0]["color_id"] == 72
     assert filtered["items"][0]["session_quantity"] == 3
     assert filtered["items"][0]["global_quantity"] == 3
+
+
+def test_inventory_exposes_imported_part_image_url() -> None:
+    client = TestClient(app)
+    project = client.post(
+        "/api/v1/projects", json={"set_num": f"image-{uuid4()}", "label": "Bild"}
+    ).json()["data"]
+    csv_with_image = CSV.replace(
+        "source_ref\n", "source_ref,image_url\n"
+    ).replace(
+        "set_regular,test\n", "set_regular,test,https://cdn.rebrickable.com/media/parts/elements/example.jpg\n"
+    )
+    client.post(
+        f"/api/v1/projects/{project['id']}/import/csv",
+        files={"file": ("inventory.csv", csv_with_image, "text/csv")},
+    )
+
+    inventory = client.get(f"/api/v1/projects/{project['id']}/inventory").json()["data"]["items"]
+
+    assert inventory[0]["image_url"] == "https://cdn.rebrickable.com/media/parts/elements/example.jpg"

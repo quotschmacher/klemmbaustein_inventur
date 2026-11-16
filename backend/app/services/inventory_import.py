@@ -158,6 +158,8 @@ def import_inventory_rows(
             )
             session.add(part)
             session.flush()
+        elif part.image_url is None and row.image_url:
+            part.image_url = row.image_url
         requirement = InventoryRequirement(
             snapshot_id=snapshot.id,
             part_id=part.id,
