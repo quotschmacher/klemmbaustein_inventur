@@ -57,7 +57,13 @@ function App() {
       const importResponse = await fetch(`/api/v1/projects/${project.data.id}/import/rebrickable`, {
         method: "POST",
       });
-      const imported = await importResponse.json();
+      const importBody = await importResponse.text();
+      let imported: { data: { requirements: number; imported: boolean }; detail?: string };
+      try {
+        imported = JSON.parse(importBody);
+      } catch {
+        throw new Error("Der Rebrickable-Import wurde nicht rechtzeitig beantwortet. Bitte erneut klicken; ein abgeschlossener Import wird aus dem lokalen Cache übernommen.");
+      }
       if (!importResponse.ok) throw new Error(imported.detail);
       const inventoryResponse = await fetch(`/api/v1/projects/${project.data.id}/inventory`);
       const inventory = await inventoryResponse.json();
