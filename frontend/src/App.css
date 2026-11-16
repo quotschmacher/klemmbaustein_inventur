@@ -231,17 +231,19 @@ td:last-child input {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
-.teilbild:hover img,
-.teilbild:focus-within img {
-  position: relative;
-  z-index: 2;
-  transform: scale(4);
-  border-radius: 0.35rem;
+.bildvorschau {
+  position: fixed;
+  z-index: 20;
+  width: min(18rem, 35vw);
+  height: min(18rem, 35vw);
+  padding: 0.5rem;
+  pointer-events: none;
+  object-fit: contain;
+  border-radius: 0.5rem;
   background: #fff;
-  box-shadow: 0 0.5rem 1.5rem rgb(31 41 55 / 25%);
+  box-shadow: 0 0.75rem 2rem rgb(31 41 55 / 30%);
 }
 
 @media (max-width: 760px) {
