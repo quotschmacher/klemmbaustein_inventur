@@ -18,6 +18,8 @@ from app.db.models import (
     PartCatalog,
     Project,
     ProjectStatus,
+    CountingSession,
+    SessionStatus,
     SnapshotValidationStatus,
 )
 
@@ -192,4 +194,16 @@ def create_project(session: Session, set_num: str, label: str) -> Project:
     project = Project(set_id=lego_set.id, label=label, status=ProjectStatus.PENDING_IMPORT)
     session.add(project)
     session.flush()
+    for position, session_label in enumerate(
+        ("Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Minifiguren")
+    ):
+        session.add(
+            CountingSession(
+                project_id=project.id,
+                label=session_label,
+                position=position,
+                mandatory=True,
+                status=SessionStatus.IN_PROGRESS,
+            )
+        )
     return project

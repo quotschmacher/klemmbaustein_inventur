@@ -9,8 +9,9 @@ from psycopg import connect
 from psycopg.errors import OperationalError
 from sqlalchemy import select
 
-from app.db.models import Color, InventoryRequirement, PartCatalog, Project
+from app.db.models import Color, CountingSession, InventoryRequirement, PartCatalog, Project, SessionStatus
 from app.db.session import create_session_factory
+from app.services.counting import CountError, adjust_count, set_count
 from app.services.inventory_import import CsvImportError, create_project, import_csv_inventory
 from app.services.rebrickable import RebrickableClient, RebrickableImportError
 from app.services.rebrickable_project_import import RebrickableProjectImporter
@@ -21,6 +22,31 @@ app = FastAPI(title="LEGO Inventur API", version="0.1.0")
 class ProjectCreateRequest(BaseModel):
     set_num: str = Field(min_length=1, max_length=100)
     label: str = Field(min_length=1, max_length=500)
+
+
+class SessionCreateRequest(BaseModel):
+    label: str = Field(min_length=1, max_length=255)
+    position: int = Field(ge=0)
+    mandatory: bool = True
+
+
+class SessionPatchRequest(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=255)
+    position: int | None = Field(default=None, ge=0)
+    mandatory: bool | None = None
+    status: SessionStatus | None = None
+
+
+class CountAdjustRequest(BaseModel):
+    inventory_item_id: UUID
+    delta: int = Field(ge=-1000, le=1000)
+    client_mutation_id: UUID
+
+
+class CountSetRequest(BaseModel):
+    quantity: int = Field(ge=0)
+    expected_revision: int = Field(ge=0)
+    client_mutation_id: UUID
 
 
 def _database_dsn() -> str:
@@ -115,6 +141,7 @@ def inventory_route(project_id: UUID) -> dict[str, dict[str, object]]:
         ).all()
     items = [
         {
+            "id": str(requirement.id),
             "part_num": part.part_num,
             "part_name": part.name,
             "color_id": color.provider_color_id,
@@ -125,3 +152,96 @@ def inventory_route(project_id: UUID) -> dict[str, dict[str, object]]:
         for requirement, part, color in rows
     ]
     return {"data": {"total": len(items), "items": items}}
+
+
+@app.get("/api/v1/projects/{project_id}/sessions")
+def list_sessions_route(project_id: UUID) -> dict[str, list[dict[str, object]]]:
+    factory = create_session_factory()
+    with factory() as db:
+        sessions = db.scalars(
+            select(CountingSession)
+            .where(CountingSession.project_id == project_id)
+            .order_by(CountingSession.position)
+        ).all()
+    return {"data": [_session_data(item) for item in sessions]}
+
+
+@app.post("/api/v1/projects/{project_id}/sessions", status_code=status.HTTP_201_CREATED)
+def create_session_route(project_id: UUID, payload: SessionCreateRequest) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    with factory.begin() as db:
+        if db.get(Project, project_id) is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projekt nicht gefunden.")
+        counting_session = CountingSession(project_id=project_id, **payload.model_dump())
+        db.add(counting_session)
+        db.flush()
+        return {"data": _session_data(counting_session)}
+
+
+@app.patch("/api/v1/sessions/{session_id}")
+def patch_session_route(session_id: UUID, payload: SessionPatchRequest) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    with factory.begin() as db:
+        counting_session = db.get(CountingSession, session_id)
+        if counting_session is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bereich nicht gefunden.")
+        for field, value in payload.model_dump(exclude_none=True).items():
+            setattr(counting_session, field, value)
+        db.flush()
+        return {"data": _session_data(counting_session)}
+
+
+@app.post("/api/v1/sessions/{session_id}/counts/adjust")
+def adjust_count_route(session_id: UUID, payload: CountAdjustRequest) -> dict[str, dict[str, int]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            result = adjust_count(
+                db,
+                session_id=session_id,
+                requirement_id=payload.inventory_item_id,
+                delta=payload.delta,
+                mutation_id=payload.client_mutation_id,
+            )
+    except CountError as error:
+        _count_error(error)
+    return {"data": result}
+
+
+@app.put("/api/v1/sessions/{session_id}/counts/{inventory_item_id}")
+def set_count_route(
+    session_id: UUID, inventory_item_id: UUID, payload: CountSetRequest
+) -> dict[str, dict[str, int]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            result = set_count(
+                db,
+                session_id=session_id,
+                requirement_id=inventory_item_id,
+                quantity=payload.quantity,
+                expected_revision=payload.expected_revision,
+                mutation_id=payload.client_mutation_id,
+            )
+    except CountError as error:
+        _count_error(error)
+    return {"data": result}
+
+
+def _session_data(session: CountingSession) -> dict[str, object]:
+    return {
+        "id": str(session.id),
+        "label": session.label,
+        "position": session.position,
+        "mandatory": session.mandatory,
+        "status": session.status.value,
+    }
+
+
+def _count_error(error: CountError) -> None:
+    error_status = {
+        "INVALID_NEGATIVE_QUANTITY": status.HTTP_422_UNPROCESSABLE_ENTITY,
+        "REVISION_CONFLICT": status.HTTP_409_CONFLICT,
+        "SESSION_ARCHIVED": status.HTTP_409_CONFLICT,
+    }.get(error.code, status.HTTP_422_UNPROCESSABLE_ENTITY)
+    raise HTTPException(status_code=error_status, detail={"code": error.code, "message": str(error)})
