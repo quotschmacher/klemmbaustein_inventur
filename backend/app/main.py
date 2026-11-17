@@ -288,6 +288,7 @@ def inventory_route(
             "image_url": part.image_url,
             "color_id": color.provider_color_id,
             "color_name": color.name,
+            "color_rgb": color.rgb,
             "expected_qty": requirement.expected_qty,
             "inventory_class": requirement.inventory_class.value,
             "session_quantity": int(session_balances.get(requirement.id, (0, 0))[0]),

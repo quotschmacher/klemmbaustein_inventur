@@ -41,6 +41,7 @@ class CsvRow:
     image_url: str | None
     source_type: str
     source_ref: str
+    color_rgb: str | None = None
     provenance: tuple[tuple[str, str, int], ...] = ()
 
 
@@ -82,6 +83,7 @@ def parse_csv_inventory(content: bytes) -> list[CsvRow]:
                 image_url=(row.get("image_url") or "").strip() or None,
                 source_type=(row.get("source_type") or "csv").strip(),
                 source_ref=(row.get("source_ref") or "csv").strip(),
+                color_rgb=(row.get("color_rgb") or "").strip().lstrip("#") or None,
             )
         )
     if not rows:
@@ -143,9 +145,11 @@ def import_inventory_rows(
             select(Color).where(Color.provider == provider, Color.provider_color_id == row.color_id)
         )
         if color is None:
-            color = Color(provider=provider, provider_color_id=row.color_id, name=row.color_name)
+            color = Color(provider=provider, provider_color_id=row.color_id, name=row.color_name, rgb=row.color_rgb)
             session.add(color)
             session.flush()
+        elif color.rgb is None and row.color_rgb:
+            color.rgb = row.color_rgb
         part = session.scalar(
             select(PartCatalog).where(PartCatalog.provider == provider, PartCatalog.part_num == row.part_num)
         )

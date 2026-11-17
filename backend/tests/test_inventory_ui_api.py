@@ -4,9 +4,9 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-CSV = """part_num,color_id,color_name,quantity,inventory_class,part_name,source_type,source_ref
-3001,72,Light Bluish Gray,10,required,Brick 2 x 4,set_regular,test
-3001,5,Red,4,required,Brick 2 x 4,set_regular,test
+CSV = """part_num,color_id,color_name,color_rgb,quantity,inventory_class,part_name,source_type,source_ref
+3001,72,Light Bluish Gray,9BA19D,10,required,Brick 2 x 4,set_regular,test
+3001,5,Red,C91A09,4,required,Brick 2 x 4,set_regular,test
 """
 
 
@@ -33,6 +33,7 @@ def test_inventory_filters_to_exact_color_and_includes_selected_session_count() 
 
     assert filtered["total"] == 1
     assert filtered["items"][0]["color_id"] == 72
+    assert filtered["items"][0]["color_rgb"] == "9BA19D"
     assert filtered["items"][0]["session_quantity"] == 3
     assert filtered["items"][0]["global_quantity"] == 3
 

@@ -33,6 +33,7 @@ def rebrickable_rows(
         if key not in aggregated:
             aggregated[key] = {
                 "color_name": str(color.get("name") or f"Farbe {color_id}"),
+                "color_rgb": str(color["rgb"]) if color.get("rgb") else None,
                 "part_name": str(part.get("name") or part_num),
                 "image_url": str(part["part_img_url"]) if part.get("part_img_url") else None,
                 "quantity": 0,
@@ -57,6 +58,7 @@ def rebrickable_rows(
             image_url=data["image_url"] if isinstance(data["image_url"], str) else None,
             source_type=data["provenance"][0][0],
             source_ref=data["provenance"][0][1],
+            color_rgb=data["color_rgb"] if isinstance(data["color_rgb"], str) else None,
             provenance=tuple(data["provenance"]),
         )
         for (part_num, color_id, inventory_class), data in aggregated.items()

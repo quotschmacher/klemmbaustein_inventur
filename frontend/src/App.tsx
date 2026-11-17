@@ -9,6 +9,7 @@ type InventoryItem = {
   image_url: string | null;
   color_id: number;
   color_name: string;
+  color_rgb: string | null;
   expected_qty: number;
   inventory_class: string;
   session_quantity: number;
@@ -404,7 +405,8 @@ function App() {
     setMessage("Lege ein weiteres Projekt an und importiere dessen Inventar.");
   }
 
-  const colors = Array.from(new Map(items.map((item) => [item.color_id, item.color_name])).entries());
+  const colors = Array.from(new Map(items.map((item) => [item.color_id, { name: item.color_name, rgb: item.color_rgb }])).entries());
+  const selectedColor = selectedColorId === null ? null : colors.find(([id]) => id === selectedColorId)?.[1];
   const visibleItems = items.filter((item) => (
     (selectedColorId === null || item.color_id === selectedColorId)
     && `${item.part_num} ${item.part_name}`.toLowerCase().includes(search.toLowerCase())
@@ -481,7 +483,7 @@ function App() {
             {view === "count" && <section className="zaehlbereich" aria-label="Zählbereich">
               <h2>Bereich auswählen</h2>
               <div className="tabs" role="tablist" aria-label="Zählbereiche">{sessions.map((session) => <button type="button" role="tab" aria-selected={session.id === selectedSessionId} onClick={() => selectSession(session.id)} key={session.id}>{session.label}</button>)}</div>
-              <div className="filterbar"><label>Suche<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Teilenummer oder Name" /></label><label>Farbe<select value={selectedColorId ?? ""} onChange={(event) => setSelectedColorId(event.target.value ? Number(event.target.value) : null)}><option value="">Alle Farben</option>{colors.map(([id, name]) => <option key={id} value={id}>Nur: {name}</option>)}</select></label>{selectedColorId !== null && <button type="button" onClick={() => setSelectedColorId(null)}>Filter zurücksetzen</button>}</div>
+              <div className="filterbar"><label>Suche<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Teilenummer oder Name" /></label><label>Farbe<span className="farbauswahl"><span className="farbfeld" aria-label={selectedColor ? `Farbe ${selectedColor.name}` : "Alle Farben"} style={{ backgroundColor: selectedColor?.rgb ? `#${selectedColor.rgb}` : "#ffffff" }} /><select value={selectedColorId ?? ""} onChange={(event) => setSelectedColorId(event.target.value ? Number(event.target.value) : null)}><option value="">Alle Farben</option>{colors.map(([id, color]) => <option key={id} value={id}>Nur: {color.name}</option>)}</select></span></label>{selectedColorId !== null && <button type="button" onClick={() => setSelectedColorId(null)}>Filter zurücksetzen</button>}</div>
               <p className="hinweis">Die Sollmenge gilt für das ganze Set, nicht pro Bereich.</p>
               <div className="tabellenrahmen"><table><thead><tr><th>Teil</th><th>Farbe</th><th>Soll</th><th>Bereich</th><th>Gesamt</th><th>Abweichung</th><th>Zählen</th></tr></thead><tbody>{visibleItems.map((item) => { const delta = item.global_quantity - item.expected_qty; return <tr key={item.id}><td className="teil"><span className="teilinhalt"><span className="teilbild" onMouseEnter={(event) => item.image_url && setImagePreview({ url: item.image_url, x: event.clientX, y: event.clientY })} onMouseMove={(event) => item.image_url && setImagePreview({ url: item.image_url, x: event.clientX, y: event.clientY })} onMouseLeave={() => setImagePreview(null)}>{item.image_url && <img src={item.image_url} alt="" loading="lazy" onError={(event) => { event.currentTarget.style.display = "none"; }} />}</span><span>{item.part_num} – {item.part_name}</span></span></td><td>{item.color_name}</td><td>{item.expected_qty}</td><td>{item.session_quantity}</td><td>{item.global_quantity}</td><td>{delta > 0 ? `Überschuss +${delta}` : delta < 0 ? `Vorläufig offen ${-delta}` : "Ausgeglichen"}</td><td><button type="button" aria-label={`-1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, -1)}>−</button><input aria-label={`Menge ${item.part_num} ${item.color_name}`} type="number" min="0" value={item.session_quantity} onChange={(event) => setQuantity(item, Number(event.target.value))} /><button type="button" aria-label={`+1 ${item.part_num} ${item.color_name}`} onClick={() => adjust(item, 1)}>+</button></td></tr>; })}</tbody></table></div>
             </section>}
