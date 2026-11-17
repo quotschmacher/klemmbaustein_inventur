@@ -172,6 +172,21 @@ button {
 .positionsliste span { flex: 1 1 20rem; }
 .positionsliste label { min-width: 6rem; }
 
+.exportlinks {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.exportlinks a {
+  width: fit-content;
+  border: 1px solid #4657a9;
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.7rem;
+  color: #fff;
+  background: #4657a9;
+  text-decoration: none;
+}
+
 .tabs {
   display: flex;
   flex-wrap: wrap;

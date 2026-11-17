@@ -57,7 +57,7 @@ function App() {
   const [targetSessionId, setTargetSessionId] = useState<string | null>(null);
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"overview" | "count" | "orders">("overview");
+  const [view, setView] = useState<"overview" | "count" | "orders" | "exports">("overview");
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [surplusItems, setSurplusItems] = useState<Array<{ id: string; part_num: string; part_name: string; color_name: string; surplus_quantity: number }>>([]);
   const [missingItems, setMissingItems] = useState<DifferenceItem[]>([]);
@@ -370,6 +370,7 @@ function App() {
               <button type="button" aria-current={view === "overview" ? "page" : undefined} onClick={() => setView("overview")}>Übersicht</button>
               <button type="button" aria-current={view === "count" ? "page" : undefined} onClick={() => setView("count")}>Zählen</button>
               <button type="button" aria-current={view === "orders" ? "page" : undefined} onClick={() => setView("orders")}>Fehlteile & Bestellungen</button>
+              <button type="button" aria-current={view === "exports" ? "page" : undefined} onClick={() => setView("exports")}>Export & Backup</button>
               <button type="button" onClick={startNewProject}>Neues Set importieren</button>
             </nav>
             {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
@@ -390,6 +391,17 @@ function App() {
               {missingFinal && <section><h3>Bestellbare Fehlteile</h3>{missingItems.length === 0 ? <p>Keine bestätigten Fehlteile.</p> : <><p>Diese Positionen werden gemeinsam als eine Sammelbestellung angelegt.</p><ul className="positionsliste">{missingItems.map((item) => <li key={item.id}><span>{item.part_num} – {item.part_name}, {item.color_name}: {item.missing_quantity} fehlen</span></li>)}</ul><button type="button" onClick={createCombinedReplacement}>Sammelbestellung anlegen ({missingItems.length} Positionen)</button></>}</section>}
               <section><h3>Bestellungen</h3>{replacements.length === 0 ? <p>Noch keine Bestellpositionen.</p> : <ul className="positionsliste">{replacements.map((item) => <li key={item.id}><span>{item.part_num} – {item.part_name}, {item.color_name}: bestellt {item.qty_ordered}, erhalten {item.qty_received}, eingebucht {item.qty_booked}</span><label>Erhalten<input aria-label={`Erhalten ${item.part_num}`} type="number" min={item.qty_booked} value={item.qty_received} onChange={(event) => receiveReplacement(item, Number(event.target.value))} /></label>{item.qty_received > item.qty_booked && <button type="button" onClick={() => bookReplacement(item)}>In Zielbereich einbuchen</button>}</li>)}</ul>}</section>
               <p className="hinweis">Die Zielbereich-Zuordnung ist eine manuelle organisatorische Entscheidung und kein Nachweis, wo das Teil ursprünglich gefehlt hat.</p>
+            </section>}
+            {view === "exports" && <section className="bestellungen" aria-label="Export und Backup">
+              <h2>Export & Backup</h2>
+              <p>Die Downloads enthalten den aktuellen, serverseitig gespeicherten Zählstand dieses Projekts.</p>
+              <div className="exportlinks">
+                <a href={`/api/v1/projects/${projectId}/exports/inventory.csv`} download>Inventar und Zählstände als CSV</a>
+                <a href={`/api/v1/projects/${projectId}/exports/differences.csv`} download>Fehlteile und Überschüsse als CSV</a>
+                <a href={`/api/v1/projects/${projectId}/exports/backup.json`} download>Projektbackup als JSON</a>
+                <a href={`/api/v1/projects/${projectId}/exports/wanted-list.xml`} download>BrickLink Wanted List XML</a>
+              </div>
+              <p className="hinweis">Die BrickLink-Datei wird nur erzeugt, wenn alle bestätigten Fehlteile über geprüfte Teil- und Farbzuordnungen verfügen.</p>
             </section>}
             {view === "count" && <section className="zaehlbereich" aria-label="Zählbereich">
               <h2>Bereich auswählen</h2>

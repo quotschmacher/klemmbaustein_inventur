@@ -24,7 +24,7 @@ Hermes Agent: Nach jeder Phase mit echten ausgeführten Befehlen und Ergebnissen
 | 06 – Zähloberfläche und Farbfilter | DONE | 22 Backend-Tests; Frontend-Vitest, ESLint, Produktionsbuild und Browser-E2E erfolgreich | `898e9b8 task-06: Zähloberfläche und Farbfilter` |
 | 07 – Gesamtübersicht und Abschlussworkflow | DONE | 23 Backend-Tests; 2 Frontend-Vitest; ESLint, Vite-Build und Browser-E2E erfolgreich | `92493ec task-07: Gesamtübersicht und Abschlussworkflow` |
 | 08 – Fehlteile, Bestellungen und Beutelzuordnung | DONE | 24 Backend-Tests; 2 Frontend-Vitest; Browser-E2E Bestellung → Eingang → Einbuchung | `972f326 task-08: Fehlteile und Bestellungen` |
-| 09 – CSV/JSON-Export, Restore und BrickLink | TODO | noch keine | – |
+| 09 – CSV/JSON-Export, Restore und BrickLink | DONE | 33 Backend-Tests, Ruff und Alembic head erfolgreich | – |
 | 10 – Security, Qualität und produktive Abnahme | TODO | noch keine | – |
 
 Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei unterbrochener Implementierung WIP verwenden.
@@ -96,3 +96,13 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - Einbuchung: Erhaltene Ersatzteile erhöhen den Inventar-Istwert erst durch den separaten Schritt „In Zielbereich einbuchen“. Die Buchung ist über die Mutation-UUID idempotent, mit Bestellposition verknüpft und kann die erhaltene Restmenge nicht überschreiten.
 - Tests und Abnahme: 24 Backend-Tests, 2 Frontend-Vitest, Ruff, ESLint, Vite-Build und Alembic head erfolgreich. Browser-E2E prüfte Fehlteile nach Abschluss, Bestellung, Wareneingang, Wiederöffnen des Zielbereichs und Einbuchung; `qty_booked=4` wurde danach über die API zurückgelesen.
 - Nächste Task: 09 – CSV/JSON-Export, Restore und BrickLink.
+
+## Task 09 – 17. November 2026
+
+- Ergebnis: `inventory.csv` exportiert Soll/Ist/Abweichungen inklusive Spares; `differences.csv` enthält Überschüsse sofort und Fehlmengen nur nach vollständigem Pflichtabschluss. Das JSON-Backup enthält Version, Snapshot mit Quelle/Prüfsumme und Mapping-Metadaten, Bereiche, Bilanzen, Events, Bestellungen, Fremdfunde und Projekt-Events.
+- Restore: `POST /api/v1/projects/import-backup` prüft die Schemaversion und strukturelle Referenzen, verwendet einen identischen Snapshot wieder oder stellt ihn aus dem Backup her und erzeugt immer ein neues Projekt. Originaldaten bleiben unverändert; neue UUIDs halten Restore und Original kollisionsfrei.
+- BrickLink: Die XML-Route exportiert ausschließlich bestätigte Fehlmengen mit vollständigem Teil-/Farb-Mapping. Ohne Mapping liefert sie `422 BRICKLINK_MAPPING_MISSING` samt Warnliste und niemals ein falsches XML.
+- Tests und Abnahme: `docker compose -f compose.dev.yaml exec -T workspace bash -lc 'cd /workspace/backend && ruff check . && pytest -p no:cacheprovider -q'` → `All checks passed!`, `33 passed in 12.65s`; anschließend `alembic current` → `43e98bf42a01 (head)`. Der fokussierte Export-/Restore-/BrickLink-Testlauf endete mit `5 passed`.
+- Dokumentation: README um Endpunkte, Restore-Nichtüberschreiben und BrickLink-Blocker ergänzt.
+- Commit: absichtlich nicht erstellt (Auftrag: nicht committen; bereits vorhandene unversionierte `agent/`-Dateien bleiben getrennt).
+- Nächste Task: 10 – Security, Qualität und produktive Abnahme.

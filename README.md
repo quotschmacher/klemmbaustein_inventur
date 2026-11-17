@@ -40,6 +40,19 @@ curl -fsS http://localhost:8080/api/health
 
 `docker compose down` stoppt die Container, erhält jedoch das benannte Volume `lego-inventur_pgdata`. Nie `docker compose down -v` verwenden, wenn Daten erhalten bleiben sollen.
 
+## Datenexport und Projekt-Restore
+
+Die API stellt pro Projekt diese Downloads bereit:
+
+- `GET /api/v1/projects/{id}/exports/inventory.csv`: Soll-, Gesamt-Ist-, Fehl- und Überschussmengen, einschließlich `spare`.
+- `GET /api/v1/projects/{id}/exports/differences.csv`: Überschüsse sofort; Fehlmengen erst nach Abschluss aller Pflichtbereiche.
+- `GET /api/v1/projects/{id}/exports/backup.json`: versioniertes Projektbackup (`schema_version: 1`) mit Snapshot, Quellen/Prüfsumme, Bereichen, Zählständen/-events, Bestellungen, Fremdfunden und Projekt-Events.
+- `POST /api/v1/projects/import-backup`: nimmt das JSON-Objekt eines Backups entgegen, validiert Version und Referenzen und erstellt ausschließlich ein neues Projekt. Ein vorhandenes Projekt wird nie überschrieben.
+
+Die Wiederherstellung verwendet einen bereits vorhandenen, prüfsummengleichen Snapshot wieder oder legt ihn aus dem Backup an. Neue Projekt-, Bereichs-, Event- und Bestell-UUIDs verhindern Kollisionen mit dem Original und erhalten alle referenziellen Beziehungen.
+
+`GET /api/v1/projects/{id}/exports/wanted-list.xml` erzeugt eine BrickLink-Wanted-List nur für bestätigte Fehlmengen und nur bei Teil- **und** Farb-Mapping. Fehlt mindestens ein Mapping, antwortet die API mit `422 BRICKLINK_MAPPING_MISSING` und einer Warnliste; sie liefert in diesem Fall ausdrücklich kein unzuverlässiges XML.
+
 ## Lokale Aktualisierung nach Git-Commits
 
 Dieses Repository enthält einen versionierten Post-Commit-Hook. Einmal pro Clone aktivieren:

@@ -1,10 +1,14 @@
 import asyncio
+import csv
 import os
 from datetime import datetime, timezone
+from io import StringIO
 from typing import Literal
 from uuid import UUID
 
 from fastapi import FastAPI, File, HTTPException, Query, Response, UploadFile, status
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 import httpx
 from pydantic import BaseModel, Field
 from psycopg import connect
@@ -24,6 +28,13 @@ from app.db.models import (
 from app.db.session import create_session_factory
 from app.services.counting import CountError, adjust_count, set_count
 from app.services.inventory_import import CsvImportError, create_project, import_csv_inventory
+from app.services.exports import (
+    BrickLinkExportError,
+    ExportError,
+    bricklink_wanted_list_xml,
+    inventory_export_items,
+)
+from app.services.backup import BackupValidationError, project_backup, restore_project_backup
 from app.services.rebrickable import RebrickableClient, RebrickableImportError
 from app.services.rebrickable_project_import import RebrickableProjectImporter
 from app.services.reconciliation import ReconciliationError, difference_items, project_reconciliation
@@ -322,6 +333,120 @@ def differences_route(
     return {"data": {"final": final, "items": items}}
 
 
+@app.get("/api/v1/projects/{project_id}/exports/inventory.csv")
+def inventory_csv_export_route(project_id: UUID) -> Response:
+    factory = create_session_factory()
+    try:
+        with factory() as db:
+            items = inventory_export_items(db, project_id)
+    except ExportError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return _csv_response(
+        items,
+        [
+            "part_num",
+            "part_name",
+            "color_id",
+            "color_name",
+            "inventory_class",
+            "expected_quantity",
+            "global_quantity",
+            "missing_quantity",
+            "surplus_quantity",
+        ],
+        "inventory.csv",
+    )
+
+
+@app.get("/api/v1/projects/{project_id}/exports/differences.csv")
+def differences_csv_export_route(project_id: UUID) -> Response:
+    factory = create_session_factory()
+    try:
+        with factory() as db:
+            final, items = difference_items(db, project_id, "all")
+    except ReconciliationError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    rows = [
+        {
+            "difference_type": difference_type,
+            "part_num": item["part_num"],
+            "part_name": item["part_name"],
+            "color_id": item["color_id"],
+            "color_name": item["color_name"],
+            "expected_quantity": item["expected_quantity"],
+            "global_quantity": item["global_quantity"],
+            "difference_quantity": item[f"{difference_type}_quantity"],
+        }
+        for item in items
+        for difference_type in ("surplus", "missing")
+        if item[f"{difference_type}_quantity"] > 0 and (difference_type != "missing" or final)
+    ]
+    return _csv_response(
+        rows,
+        [
+            "difference_type",
+            "part_num",
+            "part_name",
+            "color_id",
+            "color_name",
+            "expected_quantity",
+            "global_quantity",
+            "difference_quantity",
+        ],
+        "differences.csv",
+    )
+
+
+@app.get("/api/v1/projects/{project_id}/exports/backup.json")
+def backup_json_export_route(project_id: UUID) -> JSONResponse:
+    factory = create_session_factory()
+    try:
+        with factory() as db:
+            backup = project_backup(db, project_id)
+    except BackupValidationError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return JSONResponse(
+        content=jsonable_encoder(backup),
+        headers={"Content-Disposition": 'attachment; filename="backup.json"'},
+    )
+
+
+@app.get("/api/v1/projects/{project_id}/exports/wanted-list.xml")
+def bricklink_export_route(project_id: UUID) -> Response:
+    factory = create_session_factory()
+    try:
+        with factory() as db:
+            xml = bricklink_wanted_list_xml(db, project_id)
+    except BrickLinkExportError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": error.code, "message": str(error), "details": error.details},
+        ) from error
+    except ExportError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return Response(
+        content=xml,
+        media_type="application/xml",
+        headers={"Content-Disposition": 'attachment; filename="wanted-list.xml"'},
+    )
+
+
+@app.post("/api/v1/projects/import-backup", status_code=status.HTTP_201_CREATED)
+def restore_backup_route(backup: dict[str, object]) -> dict[str, dict[str, str]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            project, source_project_id = restore_project_backup(db, backup)
+            db.flush()
+            result = {"id": str(project.id), "restored_from_project_id": str(source_project_id)}
+    except BackupValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"code": "INVALID_BACKUP_VERSION", "message": str(error)},
+        ) from error
+    return {"data": result}
+
+
 @app.get("/api/v1/projects/{project_id}/replacements")
 def list_replacements_route(project_id: UUID) -> dict[str, list[dict[str, object]]]:
     factory = create_session_factory()
@@ -475,3 +600,15 @@ def _count_error(error: CountError) -> None:
         "SESSION_ARCHIVED": status.HTTP_409_CONFLICT,
     }.get(error.code, status.HTTP_422_UNPROCESSABLE_ENTITY)
     raise HTTPException(status_code=error_status, detail={"code": error.code, "message": str(error)})
+
+
+def _csv_response(rows: list[dict[str, object]], fieldnames: list[str], filename: str) -> Response:
+    content = StringIO(newline="")
+    writer = csv.DictWriter(content, fieldnames=fieldnames, lineterminator="\n")
+    writer.writeheader()
+    writer.writerows(rows)
+    return Response(
+        content=content.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
