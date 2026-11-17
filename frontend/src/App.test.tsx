@@ -13,6 +13,8 @@ test("zeigt die Startseite der LEGO-Inventur", () => {
   expect(screen.getByLabelText("CSV-Inventar")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Inventar importieren" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Von Rebrickable importieren" })).toBeInTheDocument();
+  expect(screen.getByLabelText("Rebrickable-Anleitungssnapshots")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Anleitungssnapshots zuordnen" })).toBeInTheDocument();
   expect(screen.queryByText("Bereich auswählen")).not.toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Synthetische Test-CSV herunterladen" })).toHaveAttribute(
     "href",

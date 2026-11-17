@@ -28,10 +28,12 @@ class FakeRebrickableClient:
 
     def fetch_all_pages(self, path: str) -> list[dict[str, object]]:
         self.calls += 1
-        if path.endswith("/parts/?inc_minifig_parts=1"):
+        if path.endswith("/parts/?inc_minifig_parts=0"):
             return [{"part": {"part_num": "3001", "name": "Brick"}, "color": {"id": 5, "name": "Red"}, "quantity": 5, "is_spare": False}]
         if path.endswith("/minifigs/"):
             return [{"set_num": "fig-1", "set_name": "Figur", "quantity": 3}]
+        if path.endswith("/minifigs/fig-1/parts/"):
+            return [{"part": {"part_num": "3002", "name": "Plate"}, "color": {"id": 1, "name": "Blue"}, "quantity": 2, "is_spare": False}]
         raise AssertionError(path)
 
 
@@ -47,7 +49,7 @@ class InstructionRebrickableClient:
         if self.fail_on and self.fail_on in path:
             raise CsvImportError("Submodell ist unvollständig.")
         parts = {
-            "/75978-1/parts/?inc_minifig_parts=1": [
+            "/75978-1/parts/?inc_minifig_parts=0": [
                 {"part": {"part_num": "3001", "name": "Brick"}, "color": {"id": 5, "name": "Red"}, "quantity": 10, "is_spare": False},
                 {"part": {"part_num": "3002", "name": "Plate"}, "color": {"id": 1, "name": "Blue"}, "quantity": 5, "is_spare": False},
             ],
@@ -83,19 +85,19 @@ def test_rebrickable_import_aggregates_minifig_parts_with_provenance() -> None:
         assert project is not None
         client = FakeRebrickableClient()
         importer = RebrickableProjectImporter(client)
-        assert importer.import_project(session, project) == (True, 1)
-        assert client.calls == 3
-        assert importer.import_project(session, project) == (False, 1)
-        assert client.calls == 3
+        assert importer.import_project(session, project) == (True, 2)
+        assert client.calls == 4
+        assert importer.import_project(session, project) == (False, 2)
+        assert client.calls == 4
 
     with factory() as session:
         project = session.get(Project, project_set_id)
         assert project is not None
-        requirement = session.scalar(
+        requirements = session.scalars(
             select(InventoryRequirement).where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
-        )
-        assert requirement is not None
-        assert requirement.expected_qty == 5
+        ).all()
+        assert sorted(item.expected_qty for item in requirements) == [5, 6]
+        requirement = requirements[0]
         provenance = session.scalars(
             select(InventoryProvenance).where(InventoryProvenance.requirement_id == requirement.id)
         ).all()
@@ -123,7 +125,7 @@ def test_75978_import_uses_parent_inventory_without_nonexistent_submodel_parts()
         sessions = session.scalars(
             select(CountingSession).where(CountingSession.project_id == project_id).order_by(CountingSession.position)
         ).all()
-        assert [item.label for item in sessions] == ["Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4"]
+        assert [item.label for item in sessions] == ["Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Figuren"]
         assert not any(item.inventory_allocation_enabled for item in sessions)
 
     client = TestClient(app)

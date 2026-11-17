@@ -223,5 +223,5 @@ def _session_labels_for_new_project(set_num: str, session_labels: list[str] | No
             raise CsvImportError("Bereichsnamen müssen eindeutig und nicht leer sein.")
         return labels
     if set_num.strip().removesuffix("-1") == "75978":
-        return ["Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4"]
+        return ["Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Figuren"]
     return ["Unsortiert"]

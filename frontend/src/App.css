@@ -139,6 +139,20 @@ button {
   border-color: #aeb7ca;
 }
 
+.snapshotimport {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) auto;
+  gap: 0.65rem;
+  align-items: end;
+  margin: 0 0 1.5rem;
+  padding: 1rem;
+  border: 1px solid #d6dbe6;
+  border-radius: 0.75rem;
+  background: #f9faff;
+}
+
+.snapshotimport .hinweis { grid-column: 1 / -1; margin: 0; }
+
 .kennzahlen,
 .bereichskarten {
   display: grid;

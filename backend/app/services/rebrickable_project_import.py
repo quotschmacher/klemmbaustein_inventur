@@ -17,7 +17,7 @@ from app.db.models import (
     ProjectStatus,
     SnapshotValidationStatus,
 )
-from app.services.inventory_import import CsvImportError, import_inventory_rows
+from app.services.inventory_import import CsvImportError, CsvRow, import_inventory_rows
 from app.services.rebrickable import RebrickableClient
 from app.services.rebrickable_import import rebrickable_rows
 
@@ -41,6 +41,7 @@ class RebrickableProjectImporter:
             .where(
                 InventorySnapshot.set_id == project.set_id,
                 InventorySnapshot.provider == "rebrickable",
+                InventorySnapshot.source_revision.like("v2:%"),
                 InventorySnapshot.validation_status == SnapshotValidationStatus.VALID,
             )
             .order_by(InventorySnapshot.imported_at.desc())
@@ -56,10 +57,12 @@ class RebrickableProjectImporter:
             return False, int(requirement_count or 0)
 
         detail = self._client.fetch_object(f"/api/v3/lego/sets/{set_num}/")
-        expanded_parts = self._client.fetch_all_pages(f"/api/v3/lego/sets/{set_num}/parts/?inc_minifig_parts=1")
+        set_parts = self._client.fetch_all_pages(f"/api/v3/lego/sets/{set_num}/parts/?inc_minifig_parts=0")
         minifigs = self._client.fetch_all_pages(f"/api/v3/lego/sets/{set_num}/minifigs/")
-        rows = rebrickable_rows(expanded_parts)
+        rows = rebrickable_rows(set_parts)
         minifig_requirements: list[tuple[str, str, int, str | None]] = []
+        minifig_component_rows = []
+        minifig_components: dict[str, list[dict[str, object]]] = {}
         for minifig in minifigs:
             try:
                 fig_ref = str(minifig["set_num"])
@@ -70,9 +73,20 @@ class RebrickableProjectImporter:
             minifig_requirements.append(
                 (fig_ref, fig_name, quantity, str(minifig["set_img_url"]) if minifig.get("set_img_url") else None)
             )
+            components = self._client.fetch_all_pages(f"/api/v3/lego/minifigs/{fig_ref}/parts/")
+            minifig_components[fig_ref] = components
+            minifig_component_rows.extend(
+                rebrickable_rows(
+                    (), minifig_items=components, minifig_quantity=quantity, fig_ref=fig_ref
+                )
+            )
+        rows = _merge_rows([*rows, *minifig_component_rows])
 
         checksum = hashlib.sha256(
-            json.dumps({"detail": detail, "parts": expanded_parts, "minifigs": minifigs}, sort_keys=True).encode()
+            json.dumps(
+                {"detail": detail, "parts": set_parts, "minifigs": minifigs, "minifig_components": minifig_components},
+                sort_keys=True,
+            ).encode()
         ).hexdigest()
         lego_set.name = str(detail.get("name") or lego_set.name)
         lego_set.year = int(detail["year"]) if detail.get("year") is not None else lego_set.year
@@ -81,7 +95,7 @@ class RebrickableProjectImporter:
             session,
             project,
             provider="rebrickable",
-            source_revision=checksum,
+            source_revision=f"v2:{checksum}",
             checksum=checksum,
             rows=rows,
         )
@@ -102,3 +116,27 @@ class RebrickableProjectImporter:
 def default_importer(api_key: str) -> RebrickableProjectImporter:
     http_client = httpx.Client(base_url="https://rebrickable.com", follow_redirects=False)
     return RebrickableProjectImporter(RebrickableClient(api_key, http_client))
+
+
+def _merge_rows(rows: list[CsvRow]) -> list[CsvRow]:
+    merged: dict[tuple[str, int, object], CsvRow] = {}
+    for row in rows:
+        key = (row.part_num, row.color_id, row.inventory_class)
+        existing = merged.get(key)
+        if existing is None:
+            merged[key] = row
+            continue
+        merged[key] = CsvRow(
+            part_num=existing.part_num,
+            color_id=existing.color_id,
+            color_name=existing.color_name,
+            quantity=existing.quantity + row.quantity,
+            inventory_class=existing.inventory_class,
+            part_name=existing.part_name,
+            image_url=existing.image_url or row.image_url,
+            source_type=existing.source_type,
+            source_ref=existing.source_ref,
+            color_rgb=existing.color_rgb or row.color_rgb,
+            provenance=(*existing.provenance, *row.provenance),
+        )
+    return list(merged.values())

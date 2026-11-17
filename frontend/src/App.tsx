@@ -52,6 +52,7 @@ function App() {
   const [label, setLabel] = useState("Winkelgasse");
   const [areas, setAreas] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [subsetFiles, setSubsetFiles] = useState<File[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [sessions, setSessions] = useState<CountingSession[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -268,6 +269,11 @@ function App() {
         throw new Error("Der Rebrickable-Import wurde nicht rechtzeitig beantwortet. Bitte erneut klicken; ein abgeschlossener Import wird aus dem lokalen Cache übernommen.");
       }
       if (!importResponse.ok) throw new Error(imported.detail);
+      let subsetMessage = "";
+      if (subsetFiles.length > 0) {
+        const result = await uploadSubsetSnapshots(project.data.id);
+        subsetMessage = ` ${result.positions} Positionen wurden den Anleitungsbereichen zugeordnet.`;
+      }
       await loadCountingData(project.data.id);
       await loadOverview(project.data.id);
       await loadOrders(project.data.id);
@@ -275,11 +281,41 @@ function App() {
       setView("overview");
       setMessage(
         imported.data.imported
-          ? `${imported.data.requirements} Positionen wurden von Rebrickable importiert.`
-          : `${imported.data.requirements} Positionen wurden aus dem lokalen Rebrickable-Cache übernommen.`,
+          ? `${imported.data.requirements} Positionen wurden von Rebrickable importiert.${subsetMessage}`
+          : `${imported.data.requirements} Positionen wurden aus dem lokalen Rebrickable-Cache übernommen.${subsetMessage}`,
       );
     } catch (error) {
       setMessage(error instanceof Error && error.message ? error.message : "Der Rebrickable-Import ist fehlgeschlagen.");
+    }
+  }
+
+  async function uploadSubsetSnapshots(activeProjectId: string) {
+    if (subsetFiles.length !== 4) {
+      throw new Error("Bitte wähle genau vier vollständige Rebrickable-JSON-Snapshots aus.");
+    }
+    const data = new FormData();
+    subsetFiles.forEach((snapshot) => data.append("files", snapshot));
+    const response = await fetch(`/api/v1/projects/${activeProjectId}/import/rebrickable-subsets`, {
+      method: "POST",
+      body: data,
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.detail || "Die Anleitungssnapshots konnten nicht zugeordnet werden.");
+    return result.data as { positions: number };
+  }
+
+  async function importSubsetSnapshots() {
+    if (!projectId) {
+      setMessage("Importiere zuerst die globale Stückliste von Rebrickable.");
+      return;
+    }
+    try {
+      const result = await uploadSubsetSnapshots(projectId);
+      await loadCountingData(projectId);
+      await loadOverview(projectId);
+      setMessage(`${result.positions} Positionen wurden den Anleitungsbereichen zugeordnet.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Die Anleitungssnapshots konnten nicht zugeordnet werden.");
     }
   }
 
@@ -429,8 +465,12 @@ function App() {
           <input id="areas" value={areas} placeholder="z. B. Anleitung 1, Anleitung 2" onChange={(event) => setAreas(event.target.value)} />
           <label htmlFor="inventory-file">CSV-Inventar</label>
           <input id="inventory-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
+          <label htmlFor="subset-files">Rebrickable-Anleitungssnapshots</label>
+          <input id="subset-files" type="file" multiple accept="application/json,.json" onChange={(event) => setSubsetFiles(Array.from(event.target.files ?? []))} />
+          <p className="hinweis">Optional: genau vier vollständige JSON-Antworten für Anleitung 1–4 auswählen. Sie werden nach dem globalen Rebrickable-Import geprüft und zugeordnet.</p>
           <button type="submit">Inventar importieren</button>
           <button type="button" onClick={importFromRebrickable}>Von Rebrickable importieren</button>
+          <button type="button" onClick={importSubsetSnapshots}>Anleitungssnapshots zuordnen</button>
         </form>}
         {!projectId && <section className="projektliste" aria-label="Projektbackup wiederherstellen"><h2>Projektbackup wiederherstellen</h2><label htmlFor="restore-file">JSON-Backup</label><input id="restore-file" type="file" accept="application/json,.json" onChange={(event) => setRestoreFile(event.target.files?.[0] ?? null)} /><button type="button" onClick={restoreBackup}>Backup als neues Projekt wiederherstellen</button></section>}
         <p aria-live="polite">{message}</p>
@@ -444,6 +484,12 @@ function App() {
               <button type="button" aria-current={view === "unlisted" ? "page" : undefined} onClick={() => { setView("unlisted"); void loadUnlistedFinds(projectId); }}>Fremdteile</button>
               <button type="button" onClick={startNewProject}>Neues Set importieren</button>
             </nav>
+            <section className="snapshotimport" aria-label="Anleitungssnapshots importieren">
+              <label htmlFor="active-subset-files">Rebrickable-Anleitungssnapshots</label>
+              <input id="active-subset-files" type="file" multiple accept="application/json,.json" onChange={(event) => setSubsetFiles(Array.from(event.target.files ?? []))} />
+              <button type="button" onClick={importSubsetSnapshots}>Anleitungssnapshots zuordnen</button>
+              <p className="hinweis">Es werden genau vier vollständige JSON-Snapshots für Anleitung 1–4 geprüft. Zugangsdaten und Browser-Cookies werden nicht verarbeitet.</p>
+            </section>
             {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
               <h2>Gesamtübersicht</h2>
               <div className="kennzahlen">
