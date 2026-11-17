@@ -38,7 +38,7 @@ type ReplacementItem = {
   target_session_id: string | null;
   status: string;
 };
-type ProjectListItem = { id: string; label: string; set_num: string; status: string };
+type ProjectListItem = { id: string; label: string; set_num: string; status: string; archived: boolean };
 
 function _sessionLabels(areas: string): string[] | undefined {
   const labels = areas.split(",").map((value) => value.trim()).filter(Boolean);
@@ -65,6 +65,7 @@ function App() {
   const [replacements, setReplacements] = useState<ReplacementItem[]>([]);
   const [imagePreview, setImagePreview] = useState<{ url: string; x: number; y: number } | null>(null);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
+  const [showArchivedProjects, setShowArchivedProjects] = useState(false);
   const [message, setMessage] = useState("CSV-Testinventar importieren oder ein eigenes Projekt anlegen.");
 
   async function loadCountingData(nextProjectId: string, nextSessionId?: string) {
@@ -82,14 +83,14 @@ function App() {
     setItems(inventory.data.items);
   }
 
-  async function loadProjects() {
-    const response = await fetch("/api/v1/projects");
+  async function loadProjects(includeArchived = showArchivedProjects) {
+    const response = await fetch(`/api/v1/projects${includeArchived ? "?include_archived=true" : ""}`);
     const body = await response.json();
     if (!response.ok) throw new Error();
     setProjects(body.data);
   }
 
-  useEffect(() => { void loadProjects().catch(() => undefined); }, []);
+  useEffect(() => { void loadProjects(showArchivedProjects).catch(() => undefined); }, [showArchivedProjects]);
 
   async function loadOverview(nextProjectId: string) {
     const [summaryResponse, surplusResponse] = await Promise.all([
@@ -126,6 +127,21 @@ function App() {
       setMessage("Projekt wurde fortgesetzt.");
     } catch {
       setMessage("Das gespeicherte Projekt konnte nicht geladen werden.");
+    }
+  }
+
+  async function setProjectArchived(project: ProjectListItem, archived: boolean) {
+    if (archived && !window.confirm(`Projekt „${project.label}“ archivieren? Es wird nicht gelöscht und kann später wieder eingeblendet werden.`)) return;
+    try {
+      const response = await fetch(`/api/v1/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived }),
+      });
+      if (!response.ok) throw new Error();
+      await loadProjects();
+    } catch {
+      setMessage("Der Projektstatus konnte nicht geändert werden.");
     }
   }
 
@@ -334,7 +350,7 @@ function App() {
         <h1 id="seitentitel">LEGO Inventur</h1>
         <p>Lege ein Projekt an und importiere ein CSV-Testinventar.</p>
         <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
-        {!projectId && projects.length > 0 && <section className="projektliste" aria-label="Gespeicherte Projekte"><h2>Gespeicherte Projekte</h2>{projects.map((project) => <button type="button" key={project.id} onClick={() => openProject(project.id)}>{project.label} · {project.set_num} fortsetzen</button>)}</section>}
+        {!projectId && projects.length > 0 && <section className="projektliste" aria-label="Gespeicherte Projekte"><h2>Gespeicherte Projekte</h2><label className="archivfilter"><input type="checkbox" checked={showArchivedProjects} onChange={(event) => setShowArchivedProjects(event.target.checked)} /> Archivierte anzeigen</label>{projects.map((project) => <article key={project.id}><span>{project.label} · {project.set_num}{project.archived ? " · archiviert" : ""}</span>{!project.archived && <button type="button" onClick={() => openProject(project.id)}>Fortsetzen</button>}<button type="button" onClick={() => setProjectArchived(project, !project.archived)}>{project.archived ? "Wiederherstellen" : "Archivieren"}</button></article>)}</section>}
         {!projectId && <form onSubmit={importInventory}>
           <label htmlFor="set-number">Set-Nummer auf dem Karton</label>
           <input id="set-number" value={setNumber} onChange={(event) => setSetNumber(event.target.value)} required />

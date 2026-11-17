@@ -46,6 +46,27 @@ h1 + p {
   color: #4b5563;
 }
 
+.projektliste {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+}
+
+.projektliste h2 { margin: 0; }
+.archivfilter { display: flex; align-items: center; gap: 0.5rem; }
+.archivfilter input { min-height: auto; }
+.projektliste article {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  border: 1px solid #d6dbe6;
+  border-radius: 0.5rem;
+  padding: 0.65rem;
+}
+.projektliste article span { flex: 1 1 18rem; }
+.projektliste article button:last-child { background: #fff; color: #27324d; border-color: #aeb7ca; }
+
 form,
 .filterbar {
   display: grid;

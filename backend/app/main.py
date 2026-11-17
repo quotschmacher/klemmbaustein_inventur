@@ -1,5 +1,6 @@
 import asyncio
 import os
+from datetime import datetime, timezone
 from typing import Literal
 from uuid import UUID
 
@@ -43,6 +44,10 @@ class ProjectCreateRequest(BaseModel):
     set_num: str = Field(min_length=1, max_length=100)
     label: str = Field(min_length=1, max_length=500)
     session_labels: list[str] | None = Field(default=None, max_length=20)
+
+
+class ProjectArchiveRequest(BaseModel):
+    archived: bool
 
 
 class SessionCreateRequest(BaseModel):
@@ -129,18 +134,28 @@ def create_project_route(payload: ProjectCreateRequest) -> dict[str, dict[str, s
 
 
 @app.get("/api/v1/projects")
-def list_projects_route() -> dict[str, list[dict[str, object]]]:
+def list_projects_route(include_archived: bool = False) -> dict[str, list[dict[str, object]]]:
     factory = create_session_factory()
     with factory() as db:
-        rows = db.execute(
-            select(Project, LegoSet)
-            .join(LegoSet, Project.set_id == LegoSet.id)
-            .order_by(Project.updated_at.desc())
-        ).all()
+        statement = select(Project, LegoSet).join(LegoSet, Project.set_id == LegoSet.id)
+        if not include_archived:
+            statement = statement.where(Project.archived_at.is_(None))
+        rows = db.execute(statement.order_by(Project.updated_at.desc())).all()
     return {"data": [
-        {"id": str(project.id), "label": project.label, "set_num": lego_set.provider_set_id, "status": project.status.value}
+        {"id": str(project.id), "label": project.label, "set_num": lego_set.provider_set_id, "status": project.status.value, "archived": project.archived_at is not None}
         for project, lego_set in rows
     ]}
+
+
+@app.patch("/api/v1/projects/{project_id}")
+def archive_project_route(project_id: UUID, payload: ProjectArchiveRequest) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    with factory.begin() as db:
+        project = db.get(Project, project_id)
+        if project is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projekt nicht gefunden.")
+        project.archived_at = datetime.now(timezone.utc) if payload.archived else None
+        return {"data": {"id": str(project.id), "archived": project.archived_at is not None}}
 
 
 @app.post("/api/v1/projects/{project_id}/import/csv")
