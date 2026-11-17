@@ -25,7 +25,10 @@ class RebrickableClient:
             parsed = urlparse(next_url)
             if parsed.netloc and parsed.netloc != self._base_host:
                 raise RebrickableImportError("Die API-Pagination verweist auf eine unzulässige Quelle.")
-            response = self._client.get(next_url, headers=self._headers, timeout=10.0)
+            try:
+                response = self._client.get(next_url, headers=self._headers, timeout=10.0)
+            except httpx.RequestError as error:
+                raise RebrickableImportError("Rebrickable ist derzeit nicht erreichbar.") from error
             if response.status_code == 429:
                 raise RebrickableImportError("Rebrickable hat das Rate-Limit erreicht.")
             try:
@@ -47,7 +50,10 @@ class RebrickableClient:
         return results
 
     def fetch_object(self, path: str) -> dict[str, object]:
-        response = self._client.get(path, headers=self._headers, timeout=10.0)
+        try:
+            response = self._client.get(path, headers=self._headers, timeout=10.0)
+        except httpx.RequestError as error:
+            raise RebrickableImportError("Rebrickable ist derzeit nicht erreichbar.") from error
         if response.status_code == 429:
             raise RebrickableImportError("Rebrickable hat das Rate-Limit erreicht.")
         try:

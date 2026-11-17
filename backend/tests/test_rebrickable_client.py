@@ -31,3 +31,13 @@ def test_fetcher_rejects_incomplete_api_response() -> None:
         client = RebrickableClient("test-key", http_client)
         with pytest.raises(RebrickableImportError, match="vollständige Ergebnisliste"):
             client.fetch_all_pages("/api/v3/lego/sets/75978-1/parts/")
+
+
+def test_fetcher_translates_transport_failures_to_a_domain_error() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("DNS fehlgeschlagen", request=request)
+
+    with httpx.Client(transport=httpx.MockTransport(handler), base_url="https://example.test") as http_client:
+        client = RebrickableClient("test-key", http_client)
+        with pytest.raises(RebrickableImportError, match="nicht erreichbar"):
+            client.fetch_all_pages("/api/v3/lego/sets/75978-1-s1/parts/")
