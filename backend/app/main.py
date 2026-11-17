@@ -47,6 +47,12 @@ from app.services.replacements import (
     replacement_items,
     update_replacement,
 )
+from app.services.unlisted_finds import (
+    UnlistedFindError,
+    project_unlisted_finds,
+    record_unlisted_find,
+    unlisted_find_data,
+)
 
 app = FastAPI(title="LEGO Inventur API", version="0.1.0")
 
@@ -84,6 +90,13 @@ class CountSetRequest(BaseModel):
     quantity: int = Field(ge=0)
     expected_revision: int = Field(ge=0)
     client_mutation_id: UUID
+
+
+class UnlistedFindCreateRequest(BaseModel):
+    part_num: str | None = Field(default=None, min_length=1, max_length=255)
+    color_ref: str | None = Field(default=None, min_length=1, max_length=255)
+    label: str = Field(min_length=1, max_length=500)
+    qty: int = Field(ge=0)
 
 
 class ReplacementCreateRequest(BaseModel):
@@ -306,6 +319,17 @@ def list_sessions_route(project_id: UUID) -> dict[str, list[dict[str, object]]]:
             .order_by(CountingSession.position)
         ).all()
     return {"data": [_session_data(item, int(counted)) for item, counted in rows]}
+
+
+@app.get("/api/v1/projects/{project_id}/unlisted")
+def list_unlisted_finds_route(project_id: UUID) -> dict[str, list[dict[str, object]]]:
+    factory = create_session_factory()
+    try:
+        with factory() as db:
+            finds = project_unlisted_finds(db, project_id)
+    except UnlistedFindError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return {"data": [unlisted_find_data(find) for find in finds]}
 
 
 @app.get("/api/v1/projects/{project_id}/summary")
@@ -580,6 +604,20 @@ def set_count_route(
     except CountError as error:
         _count_error(error)
     return {"data": result}
+
+
+@app.post("/api/v1/sessions/{session_id}/unlisted", status_code=status.HTTP_201_CREATED)
+def create_unlisted_find_route(
+    session_id: UUID, payload: UnlistedFindCreateRequest
+) -> dict[str, dict[str, object]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as db:
+            find = record_unlisted_find(db, session_id=session_id, **payload.model_dump())
+            data = unlisted_find_data(find)
+    except UnlistedFindError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    return {"data": data}
 
 
 def _session_data(session: CountingSession, counted_positions: int = 0) -> dict[str, object]:

@@ -39,6 +39,7 @@ type ReplacementItem = {
   status: string;
 };
 type ProjectListItem = { id: string; label: string; set_num: string; status: string; archived: boolean };
+type UnlistedFind = { id: string; session_id: string; part_num: string | null; color_ref: string | null; label: string; qty: number };
 
 function _sessionLabels(areas: string): string[] | undefined {
   const labels = areas.split(",").map((value) => value.trim()).filter(Boolean);
@@ -57,7 +58,7 @@ function App() {
   const [targetSessionId, setTargetSessionId] = useState<string | null>(null);
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
-  const [view, setView] = useState<"overview" | "count" | "orders" | "exports">("overview");
+  const [view, setView] = useState<"overview" | "count" | "orders" | "exports" | "unlisted">("overview");
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [surplusItems, setSurplusItems] = useState<Array<{ id: string; part_num: string; part_name: string; color_name: string; surplus_quantity: number }>>([]);
   const [missingItems, setMissingItems] = useState<DifferenceItem[]>([]);
@@ -66,6 +67,13 @@ function App() {
   const [imagePreview, setImagePreview] = useState<{ url: string; x: number; y: number } | null>(null);
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [showArchivedProjects, setShowArchivedProjects] = useState(false);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [restoreFile, setRestoreFile] = useState<File | null>(null);
+  const [unlistedFinds, setUnlistedFinds] = useState<UnlistedFind[]>([]);
+  const [unlistedLabel, setUnlistedLabel] = useState("");
+  const [unlistedPartNum, setUnlistedPartNum] = useState("");
+  const [unlistedColor, setUnlistedColor] = useState("");
+  const [unlistedQuantity, setUnlistedQuantity] = useState(1);
   const [message, setMessage] = useState("CSV-Testinventar importieren oder ein eigenes Projekt anlegen.");
 
   async function loadCountingData(nextProjectId: string, nextSessionId?: string) {
@@ -117,12 +125,20 @@ function App() {
     setReplacements(replacementsData.data);
   }
 
+  async function loadUnlistedFinds(nextProjectId: string) {
+    const response = await fetch(`/api/v1/projects/${nextProjectId}/unlisted`);
+    const body = await response.json();
+    if (!response.ok) throw new Error();
+    setUnlistedFinds(body.data);
+  }
+
   async function openProject(nextProjectId: string) {
     try {
       setTargetSessionId(null);
       await loadCountingData(nextProjectId);
       await loadOverview(nextProjectId);
       await loadOrders(nextProjectId);
+      await loadUnlistedFinds(nextProjectId);
       setView("overview");
       setMessage("Projekt wurde fortgesetzt.");
     } catch {
@@ -139,9 +155,60 @@ function App() {
         body: JSON.stringify({ archived }),
       });
       if (!response.ok) throw new Error();
+      setSelectedProjectIds((ids) => ids.filter((id) => id !== project.id));
       await loadProjects();
     } catch {
       setMessage("Der Projektstatus konnte nicht geändert werden.");
+    }
+  }
+
+  async function archiveSelectedProjects() {
+    if (selectedProjectIds.length === 0 || !window.confirm(`${selectedProjectIds.length} ausgewählte Projekte archivieren? Die Daten bleiben erhalten.`)) return;
+    try {
+      const responses = await Promise.all(selectedProjectIds.map((id) => fetch(`/api/v1/projects/${id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ archived: true }),
+      })));
+      if (responses.some((response) => !response.ok)) throw new Error();
+      setSelectedProjectIds([]);
+      await loadProjects();
+    } catch {
+      setMessage("Die ausgewählten Projekte konnten nicht vollständig archiviert werden.");
+    }
+  }
+
+  async function restoreBackup() {
+    if (!restoreFile) return setMessage("Bitte wähle zuerst eine JSON-Backup-Datei aus.");
+    try {
+      const backup = JSON.parse(await restoreFile.text());
+      const response = await fetch("/api/v1/projects/import-backup", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(backup),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error();
+      await loadProjects();
+      await openProject(result.data.id);
+      setMessage("Projektbackup wurde als neues Projekt wiederhergestellt.");
+    } catch {
+      setMessage("Das Backup konnte nicht wiederhergestellt werden.");
+    }
+  }
+
+  async function recordUnlistedFind() {
+    if (!selectedSessionId || !projectId || !unlistedLabel.trim() || unlistedQuantity < 0) return;
+    try {
+      const response = await fetch(`/api/v1/sessions/${selectedSessionId}/unlisted`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label: unlistedLabel.trim(), qty: unlistedQuantity, part_num: unlistedPartNum.trim() || null, color_ref: unlistedColor.trim() || null }),
+      });
+      if (!response.ok) throw new Error();
+      setUnlistedLabel("");
+      setUnlistedPartNum("");
+      setUnlistedColor("");
+      setUnlistedQuantity(1);
+      await loadUnlistedFinds(projectId);
+    } catch {
+      setMessage("Der Fremdteilfund konnte nicht gespeichert werden.");
     }
   }
 
@@ -350,7 +417,7 @@ function App() {
         <h1 id="seitentitel">LEGO Inventur</h1>
         <p>Lege ein Projekt an und importiere ein CSV-Testinventar.</p>
         <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
-        {!projectId && projects.length > 0 && <section className="projektliste" aria-label="Gespeicherte Projekte"><h2>Gespeicherte Projekte</h2><label className="archivfilter"><input type="checkbox" checked={showArchivedProjects} onChange={(event) => setShowArchivedProjects(event.target.checked)} /> Archivierte anzeigen</label>{projects.map((project) => <article key={project.id}><span>{project.label} · {project.set_num}{project.archived ? " · archiviert" : ""}</span>{!project.archived && <button type="button" onClick={() => openProject(project.id)}>Fortsetzen</button>}<button type="button" onClick={() => setProjectArchived(project, !project.archived)}>{project.archived ? "Wiederherstellen" : "Archivieren"}</button></article>)}</section>}
+        {!projectId && projects.length > 0 && <section className="projektliste" aria-label="Gespeicherte Projekte"><h2>Gespeicherte Projekte</h2><label className="archivfilter"><input type="checkbox" checked={showArchivedProjects} onChange={(event) => setShowArchivedProjects(event.target.checked)} /> Archivierte anzeigen</label>{selectedProjectIds.length > 0 && <button type="button" onClick={archiveSelectedProjects}>{selectedProjectIds.length} ausgewählte archivieren</button>}{projects.map((project) => <article key={project.id}>{!project.archived && <input aria-label={`${project.label} auswählen`} type="checkbox" checked={selectedProjectIds.includes(project.id)} onChange={(event) => setSelectedProjectIds((ids) => event.target.checked ? [...ids, project.id] : ids.filter((id) => id !== project.id))} />}<span>{project.label} · {project.set_num}{project.archived ? " · archiviert" : ""}</span>{!project.archived && <button type="button" onClick={() => openProject(project.id)}>Fortsetzen</button>}<button type="button" onClick={() => setProjectArchived(project, !project.archived)}>{project.archived ? "Wiederherstellen" : "Archivieren"}</button></article>)}</section>}
         {!projectId && <form onSubmit={importInventory}>
           <label htmlFor="set-number">Set-Nummer auf dem Karton</label>
           <input id="set-number" value={setNumber} onChange={(event) => setSetNumber(event.target.value)} required />
@@ -363,6 +430,7 @@ function App() {
           <button type="submit">Inventar importieren</button>
           <button type="button" onClick={importFromRebrickable}>Von Rebrickable importieren</button>
         </form>}
+        {!projectId && <section className="projektliste" aria-label="Projektbackup wiederherstellen"><h2>Projektbackup wiederherstellen</h2><label htmlFor="restore-file">JSON-Backup</label><input id="restore-file" type="file" accept="application/json,.json" onChange={(event) => setRestoreFile(event.target.files?.[0] ?? null)} /><button type="button" onClick={restoreBackup}>Backup als neues Projekt wiederherstellen</button></section>}
         <p aria-live="polite">{message}</p>
         {projectId && selectedSessionId && (
           <section className="arbeitsbereich" aria-label="Projektansicht">
@@ -371,6 +439,7 @@ function App() {
               <button type="button" aria-current={view === "count" ? "page" : undefined} onClick={() => setView("count")}>Zählen</button>
               <button type="button" aria-current={view === "orders" ? "page" : undefined} onClick={() => setView("orders")}>Fehlteile & Bestellungen</button>
               <button type="button" aria-current={view === "exports" ? "page" : undefined} onClick={() => setView("exports")}>Export & Backup</button>
+              <button type="button" aria-current={view === "unlisted" ? "page" : undefined} onClick={() => { setView("unlisted"); void loadUnlistedFinds(projectId); }}>Fremdteile</button>
               <button type="button" onClick={startNewProject}>Neues Set importieren</button>
             </nav>
             {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
@@ -402,6 +471,12 @@ function App() {
                 <a href={`/api/v1/projects/${projectId}/exports/wanted-list.xml`} download>BrickLink Wanted List XML</a>
               </div>
               <p className="hinweis">Die BrickLink-Datei wird nur erzeugt, wenn alle bestätigten Fehlteile über geprüfte Teil- und Farbzuordnungen verfügen.</p>
+            </section>}
+            {view === "unlisted" && <section className="bestellungen" aria-label="Fremdteile">
+              <h2>Fremdteile</h2>
+              <p className="hinweis">Diese Funde gehören nicht zur Soll-Liste und verändern weder Fehlteile noch Überschüsse.</p>
+              <div className="filterbar"><label>Bezeichnung<input value={unlistedLabel} onChange={(event) => setUnlistedLabel(event.target.value)} placeholder="z. B. unbekannter Stein" /></label><label>Teilenummer (optional)<input value={unlistedPartNum} onChange={(event) => setUnlistedPartNum(event.target.value)} /></label><label>Farbe (optional)<input value={unlistedColor} onChange={(event) => setUnlistedColor(event.target.value)} /></label><label>Menge<input type="number" min="0" value={unlistedQuantity} onChange={(event) => setUnlistedQuantity(Number(event.target.value))} /></label><button type="button" onClick={recordUnlistedFind}>Fremdteil speichern</button></div>
+              {unlistedFinds.length > 0 && <ul className="positionsliste">{unlistedFinds.map((find) => <li key={find.id}><span>{find.qty} × {find.label}{find.part_num ? ` (${find.part_num})` : ""}{find.color_ref ? `, ${find.color_ref}` : ""}</span></li>)}</ul>}
             </section>}
             {view === "count" && <section className="zaehlbereich" aria-label="Zählbereich">
               <h2>Bereich auswählen</h2>
