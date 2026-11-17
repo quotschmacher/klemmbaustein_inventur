@@ -23,6 +23,7 @@ from app.db.models import (
     ProjectStatus,
     ReplacementItem,
     ReplacementOrder,
+    SessionInventoryAllocation,
     SessionStatus,
     SnapshotValidationStatus,
     UnlistedFind,
@@ -61,6 +62,11 @@ def project_backup(db: Session, project_id: UUID) -> dict[str, object]:
         select(CountingSession).where(CountingSession.project_id == project.id).order_by(CountingSession.position)
     ).all()
     session_ids = [item.id for item in sessions]
+    allocations = db.scalars(
+        select(SessionInventoryAllocation)
+        .where(SessionInventoryAllocation.session_id.in_(session_ids))
+        .order_by(SessionInventoryAllocation.session_id, SessionInventoryAllocation.requirement_id)
+    ).all() if session_ids else []
     balances = db.scalars(
         select(CountBalance).where(CountBalance.session_id.in_(session_ids)).order_by(CountBalance.id)
     ).all() if session_ids else []
@@ -115,6 +121,7 @@ def project_backup(db: Session, project_id: UUID) -> dict[str, object]:
             ).all()],
         },
         "sessions": [_session_data(item) for item in sessions],
+        "session_inventory_allocations": [_allocation_data(item) for item in allocations],
         "count_balances": [_balance_data(item) for item in balances],
         "count_events": [_count_event_data(item) for item in events],
         "replacement_orders": [_replacement_order_data(item) for item in orders],
@@ -165,11 +172,34 @@ def restore_project_backup(db: Session, backup: object) -> tuple[Project, UUID]:
             label=item["label"],
             position=_integer(item["position"], "sessions.position", minimum=0),
             mandatory=_boolean(item["mandatory"], "sessions.mandatory"),
+            inventory_allocation_enabled=_boolean(
+                item.get("inventory_allocation_enabled", False), "sessions.inventory_allocation_enabled"
+            ),
             status=SessionStatus(item["status"]),
         )
         db.add(restored)
         db.flush()
         session_map[str(source_id)] = restored.id
+
+    allocations_data = data.get("session_inventory_allocations", [])
+    if not isinstance(allocations_data, list):
+        raise BackupValidationError("Backup-Bereich session_inventory_allocations ist ungültig.")
+    for item in allocations_data:
+        db.add(
+            SessionInventoryAllocation(
+                session_id=_reference(
+                    session_map, item["session_id"], "session_inventory_allocations.session_id"
+                ),
+                requirement_id=_reference(
+                    requirement_map,
+                    item["requirement_id"],
+                    "session_inventory_allocations.requirement_id",
+                ),
+                expected_qty=_integer(
+                    item["expected_qty"], "session_inventory_allocations.expected_qty", minimum=0
+                ),
+            )
+        )
 
     for item in data["count_balances"]:
         db.add(
@@ -364,6 +394,9 @@ def _validated_backup(backup: object) -> dict[str, object]:
     for key in required - {"project", "inventory_snapshot"}:
         if not isinstance(backup[key], list):
             raise BackupValidationError(f"Backup-Bereich {key} ist ungültig.")
+    allocations = backup.get("session_inventory_allocations", [])
+    if not isinstance(allocations, list):
+        raise BackupValidationError("Backup-Bereich session_inventory_allocations ist ungültig.")
     project = backup["project"]
     snapshot = backup["inventory_snapshot"]
     if not {"id", "label", "status", "set"} <= project.keys() or not isinstance(project["set"], dict):
@@ -394,6 +427,11 @@ def _validated_backup(backup: object) -> dict[str, object]:
             _text(item["label"], "sessions.label")
             _integer(item["position"], "sessions.position", minimum=0)
             _boolean(item["mandatory"], "sessions.mandatory")
+            _boolean(item.get("inventory_allocation_enabled", False), "sessions.inventory_allocation_enabled")
+        for item in allocations:
+            _uuid(item["session_id"], "session_inventory_allocations.session_id")
+            _uuid(item["requirement_id"], "session_inventory_allocations.requirement_id")
+            _integer(item["expected_qty"], "session_inventory_allocations.expected_qty", minimum=0)
     except (KeyError, TypeError, ValueError) as error:
         raise BackupValidationError("Backup enthält ungültige Werte oder Referenzen.") from error
     return backup
@@ -452,7 +490,23 @@ def _minifig_data(item: MinifigRequirement) -> dict[str, object]:
 
 
 def _session_data(item: CountingSession) -> dict[str, object]:
-    return {"id": str(item.id), "label": item.label, "position": item.position, "mandatory": item.mandatory, "status": item.status.value}
+    return {
+        "id": str(item.id),
+        "label": item.label,
+        "position": item.position,
+        "mandatory": item.mandatory,
+        "inventory_allocation_enabled": item.inventory_allocation_enabled,
+        "status": item.status.value,
+    }
+
+
+def _allocation_data(item: SessionInventoryAllocation) -> dict[str, object]:
+    return {
+        "id": str(item.id),
+        "session_id": str(item.session_id),
+        "requirement_id": str(item.requirement_id),
+        "expected_qty": item.expected_qty,
+    }
 
 
 def _balance_data(item: CountBalance) -> dict[str, object]:

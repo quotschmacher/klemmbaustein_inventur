@@ -16,9 +16,14 @@ def test_upgrade_head_creates_schema_and_critical_constraints() -> None:
     inspector = inspect(engine)
     assert "count_events" in inspector.get_table_names()
     assert "replacement_items" in inspector.get_table_names()
+    assert "session_inventory_allocations" in inspector.get_table_names()
 
     event_constraints = {constraint["name"] for constraint in inspector.get_unique_constraints("count_events")}
+    allocation_constraints = {
+        constraint["name"] for constraint in inspector.get_unique_constraints("session_inventory_allocations")
+    }
     replacement_checks = {constraint["name"] for constraint in inspector.get_check_constraints("replacement_items")}
 
     assert "uq_count_event_project_mutation" in event_constraints
+    assert "uq_session_allocation_requirement" in allocation_constraints
     assert "ck_replacement_item_booked_received" in replacement_checks

@@ -209,6 +209,7 @@ class CountingSession(Base):
     label: Mapped[str] = mapped_column(String(255), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     mandatory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    inventory_allocation_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     status: Mapped[SessionStatus] = mapped_column(
         value_enum(SessionStatus),
         nullable=False,
@@ -218,6 +219,21 @@ class CountingSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class SessionInventoryAllocation(Base):
+    __tablename__ = "session_inventory_allocations"
+    __table_args__ = (
+        UniqueConstraint("session_id", "requirement_id", name="uq_session_allocation_requirement"),
+        CheckConstraint("expected_qty >= 0", name="ck_session_allocation_expected_qty_nonnegative"),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(ForeignKey("sessions.id", ondelete="RESTRICT"), nullable=False)
+    requirement_id: Mapped[UUID] = mapped_column(
+        ForeignKey("inventory_requirements.id", ondelete="RESTRICT"), nullable=False
+    )
+    expected_qty: Mapped[int] = mapped_column(BIGINT, nullable=False)
 
 
 class CountBalance(Base):

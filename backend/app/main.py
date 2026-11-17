@@ -23,6 +23,7 @@ from app.db.models import (
     LegoSet,
     PartCatalog,
     Project,
+    SessionInventoryAllocation,
     SessionStatus,
 )
 from app.db.session import create_session_factory
@@ -250,6 +251,20 @@ def inventory_route(
             .group_by(CountBalance.requirement_id)
             .subquery()
         )
+        selected_session: CountingSession | None = None
+        allocation_quantities: dict[UUID, int] = {}
+        if session_id is not None:
+            selected_session = session.get(CountingSession, session_id)
+            if selected_session is None or selected_session.project_id != project_id:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bereich nicht gefunden.")
+            if selected_session.inventory_allocation_enabled:
+                allocation_quantities = dict(
+                    session.execute(
+                        select(SessionInventoryAllocation.requirement_id, SessionInventoryAllocation.expected_qty).where(
+                            SessionInventoryAllocation.session_id == session_id
+                        )
+                    ).all()
+                )
         statement = (
             select(InventoryRequirement, PartCatalog, Color)
             .join(PartCatalog, InventoryRequirement.part_id == PartCatalog.id)
@@ -257,6 +272,8 @@ def inventory_route(
             .outerjoin(global_counts, global_counts.c.requirement_id == InventoryRequirement.id)
             .where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
         )
+        if selected_session is not None and selected_session.inventory_allocation_enabled:
+            statement = statement.where(InventoryRequirement.id.in_(allocation_quantities))
         if color_id is not None:
             statement = statement.where(Color.provider_color_id == color_id)
         if search:
@@ -267,8 +284,6 @@ def inventory_route(
         rows = session.execute(statement.order_by(Color.provider_color_id, PartCatalog.part_num)).all()
         session_balances = {}
         if session_id is not None:
-            if session.get(CountingSession, session_id) is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bereich nicht gefunden.")
             session_balances = {
                 requirement_id: (quantity, revision)
                 for requirement_id, quantity, revision in session.execute(
@@ -289,7 +304,7 @@ def inventory_route(
             "color_id": color.provider_color_id,
             "color_name": color.name,
             "color_rgb": color.rgb,
-            "expected_qty": requirement.expected_qty,
+            "expected_qty": allocation_quantities.get(requirement.id, requirement.expected_qty),
             "inventory_class": requirement.inventory_class.value,
             "session_quantity": int(session_balances.get(requirement.id, (0, 0))[0]),
             "session_revision": int(session_balances.get(requirement.id, (0, 0))[1]),

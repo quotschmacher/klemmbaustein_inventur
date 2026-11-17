@@ -13,6 +13,7 @@ from app.db.models import (
     CountingSession,
     InventoryRequirement,
     Project,
+    SessionInventoryAllocation,
     SessionStatus,
 )
 
@@ -115,6 +116,16 @@ def _validated_entities(
         raise CountError("UNKNOWN_INVENTORY_ITEM", "Die Inventarposition gehört nicht zu diesem Projekt.")
     if session.status is not SessionStatus.IN_PROGRESS:
         raise CountError("SESSION_ARCHIVED", "In diesem Bereich kann nicht mehr gezählt werden.")
+    if session.inventory_allocation_enabled and db.scalar(
+        select(SessionInventoryAllocation.id).where(
+            SessionInventoryAllocation.session_id == session_id,
+            SessionInventoryAllocation.requirement_id == requirement_id,
+        )
+    ) is None:
+        raise CountError(
+            "INVENTORY_ITEM_NOT_ALLOCATED",
+            "Die Inventarposition ist diesem Bereich nicht zugeordnet.",
+        )
     return session, requirement
 
 

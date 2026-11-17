@@ -18,7 +18,7 @@ def test_default_sessions_and_count_mutations_are_idempotent() -> None:
     ).json()["data"]
     sessions = client.get(f"/api/v1/projects/{project['id']}/sessions")
     assert [item["label"] for item in sessions.json()["data"]] == [
-        "Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Minifiguren"
+        "Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4"
     ]
 
     client.post(
