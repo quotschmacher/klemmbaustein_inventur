@@ -117,7 +117,7 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 
 ## Nacharbeit – Anleitungsteilzuordnung für 75978-1 – 17. November 2026
 
-- Ergebnis: Der Rebrickable-Import verwendet bei `75978-1` weiterhin ausschließlich die Elternstückliste als globale Sollmenge. Zusätzlich werden `75978-1-s1` bis `75978-1-s4` vollständig abgerufen und als persistierte Sollzuordnung für `Anleitung 1` bis `Anleitung 4` gespeichert.
-- Zählen: Ein gewählter Anleitungsbereich zeigt nur seine zugeordneten Teil/Farbpositionen und deren Anleitungssoll. Zählungen aller Bereiche bleiben gegen dieselbe Elternposition gebucht und werden daher ausschließlich in der globalen Summierung von `75978-1` bewertet. Nicht einer Anleitung zugeordnete Positionen können dort nicht gezählt werden.
-- Sicherheit/Persistenz: Fehlt oder scheitert einer der vier Teilabrufe, wird der gesamte Import zurückgerollt. JSON-Backups erhalten die Zuordnungen und stellen sie beim Restore wieder her.
-- Tests: Migration auf `f2c1d4e7a891`, Ruff, vollständige Backend-Suite mit `39 passed`, Frontend-Vitest, ESLint und Produktionsbuild erfolgreich.
+- Untersuchung echter Rebrickable-Antworten: Die API liefert für `75978-1-s1` bis `75978-1-s4` zwar HTTP 200, aber jeweils `count: 0`; die Detailendpunkte liefern 404. Die auf der Website sichtbaren Kennungen sind daher über die öffentliche API keine nutzbaren Stücklistenquellen.
+- Ergebnis: `75978-1` bleibt die autoritative und vollständig importierbare Gesamtstückliste mit vier getrennten Zählbereichen `Anleitung 1` bis `Anleitung 4`. Alle Zählwerte werden global korrekt summiert, aber die Teile können ohne externe Anleitungsteil-Stücklisten nicht fachlich korrekt automatisch gefiltert werden.
+- Sicherheitsentscheidung: Der Import versucht diese leeren Teilmodelle nicht mehr und scheitert deshalb nicht mit „Rebrickable lieferte keine Teilepositionen“. Persistente Zuordnungsstrukturen bleiben für eine künftig verifizierte Quelle bzw. einen CSV-Import pro Anleitung vorbereitet; es werden keine fiktiven Zuordnungen erzeugt.
+- Tests: Ruff, vollständige Backend-Suite mit `39 passed`, Frontend-Vitest, ESLint und Produktionsbuild erfolgreich.
