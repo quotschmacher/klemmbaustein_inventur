@@ -1,8 +1,16 @@
-# Hilfsskripte – durch Hermes zu implementieren
+# Hilfsskripte
 
-- `check.sh`: in Containern Lint, Typen, Backend-Tests, Frontend-Tests, E2E.
-- `backup.sh`: `pg_dump` aus PostgreSQL-Container mit Timestamp in `./backups/` (lokal; gitignored).
-- `restore.sh`: Restore ausschließlich in benannte Ziel-Datenbank nach expliziter Bestätigung.
-- `smoke.sh`: Docker-Betriebsprüfung inklusive erneuter Auslesung nach Neustart.
+Alle Skripte werden aus dem Repository-Root heraus aufgerufen und nutzen Docker Compose; auf dem Host sind weder Python, Node noch PostgreSQL erforderlich.
 
-Diese Scripts sind noch nicht implementiert; Phase 5 erzeugt sie und testet sie. Keine Placebo-Scripts hinzufügen.
+- `./scripts/check.sh`: startet den Devcontainer und führt Ruff, Backend-Tests, Frontend-Tests, ESLint und den Produktionsbuild aus.
+- `./scripts/backup.sh`: erstellt einen PostgreSQL-Custom-Dump unter `./backups/` mit UTC-Zeitstempel und restriktiven Dateirechten. Das Verzeichnis ist gitignored.
+- `./scripts/restore.sh --confirm BACKUP.dump ziel_restore_db`: restauriert nur in eine **neue**, sicher benannte Datenbank, deren Name `restore` oder `test` enthält. Die laufende Produktivdatenbank und vorhandene Zieldatenbanken werden grundsätzlich nicht überschrieben.
+- `./scripts/smoke.sh`: startet den Produktions-Compose-Stack, prüft `/` und `/api/health`, startet API und Web neu und vergleicht die Projektliste vor/nach dem Neustart.
+
+Beispiel:
+
+```bash
+./scripts/backup.sh
+./scripts/restore.sh --confirm backups/lego-inventur-20261117T120000Z.dump lego_inventory_restore_test
+./scripts/smoke.sh
+```

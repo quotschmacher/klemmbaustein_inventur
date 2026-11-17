@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-lego_inventory}
       POSTGRES_USER: ${POSTGRES_USER:-lego}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_only_change_me}
+      POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-dev_only_change_me}
     volumes:
       - pgdata_dev:/var/lib/postgresql/data
     healthcheck:
@@ -24,7 +24,7 @@ services:
       - .:/workspace:cached
     working_dir: /workspace
     environment:
-      DATABASE_URL: postgresql+psycopg://lego:${POSTGRES_PASSWORD:-dev_only_change_me}@db:5432/${POSTGRES_DB:-lego_inventory}
+      DATABASE_URL: postgresql+psycopg://lego:${DEV_POSTGRES_PASSWORD:-dev_only_change_me}@db:5432/${POSTGRES_DB:-lego_inventory}
       REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY:-}
       PYTHONUNBUFFERED: "1"
     depends_on:

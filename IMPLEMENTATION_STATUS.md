@@ -106,3 +106,11 @@ Nach jedem Arbeitsauftrag nur nach ausgeführter Prüfung auf DONE setzen. Bei u
 - Dokumentation: README um Endpunkte, Restore-Nichtüberschreiben und BrickLink-Blocker ergänzt.
 - Commit: absichtlich nicht erstellt (Auftrag: nicht committen; bereits vorhandene unversionierte `agent/`-Dateien bleiben getrennt).
 - Nächste Task: 10 – Security, Qualität und produktive Abnahme.
+
+## Task 10 – 17. November 2026
+
+- Ergebnis: Betriebswerkzeuge unter `scripts/` ergänzt. `backup.sh` schreibt PostgreSQL-Custom-Dumps mit restriktiven Rechten in das gitignorierte Verzeichnis `backups/`. `restore.sh` verlangt `--confirm`, akzeptiert ausschließlich neue Ziel-Datenbanken mit `restore` oder `test` im Namen und kann weder die laufende Datenbank noch vorhandene Ziele überschreiben. `smoke.sh` prüft öffentliche Routen und die unveränderte Projektliste nach API-/Web-Neustart. `check.sh` installiert Abhängigkeiten im Devcontainer und führt die Qualitätsprüfungen aus.
+- Sicherheit: Produktions-Compose veröffentlicht weiterhin ausschließlich Web auf `127.0.0.1:8080`; API und DB bleiben intern. API- und Webcontainer wurden live als non-root geprüft. Die Devcontainer-Datenbank verwendet nun ein separates `DEV_POSTGRES_PASSWORD`, damit ein lokales Produktions-Secret den vorhandenen Dev-Volume-Zugang nicht verändert.
+- Backup/Restore-Abnahme: Ein echter Custom-Dump wurde erzeugt und in `lego_inventory_restore_task10` wiederhergestellt; die wiederhergestellte, separate Datenbank enthielt 38 Projekte. Kein Volume und keine vorhandene Datenbank wurden gelöscht.
+- Tests und Abnahme: Shell-Syntaxprüfungen erfolgreich; `scripts/smoke.sh` erfolgreich nach einem initial behobenen Readiness-Fehler beim direkten Neustart. Devcontainer: Ruff und `37 passed`; Frontend: 2 Vitest-Tests, ESLint und Produktionsbuild erfolgreich. `docker compose config --quiet` sowie die non-root-Prüfung beider Produktionscontainer erfolgreich.
+- Offenes Risiko: Der vollständige Playwright-E2E-Lauf auf einem neuen, isolierten Compose-Volume ist noch nicht eingerichtet; die vorhandene synthetische API-/UI-/Smoke-Abnahme deckt Persistenz und Neustart ab.

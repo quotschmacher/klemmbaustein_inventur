@@ -1,6 +1,6 @@
 # LEGO Inventur – Hermes-Agent-Projektpaket
 
-**Status:** Spezifikation und Docker-/Devcontainer-Grundgerüst; **noch keine fertige Anwendung**.
+**Status:** Implementierte, lokal über Docker Compose betriebene Anwendung; Abnahme- und Betriebsnachweise in `IMPLEMENTATION_STATUS.md`.
 
 Ziel: LEGO-Sets auf Vollständigkeit prüfen. Eine zentrale, verifizierte Inventarliste wird in beliebig viele **physische Zählbereiche** (z. B. Haus 1–4, Figuren) aufgeteilt. Die gezählten Mengen werden über alle Bereiche pro **Teilenummer + Farbe** summiert. Die Anwendung erkennt **Fehlmengen, Überschüsse und Fremdteile**. Jedes Haus kann unabhängig gezählt und eingepackt werden, ohne dass eine separate Soll-Liste pro Gebäude existiert.
 
