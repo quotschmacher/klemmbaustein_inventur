@@ -304,21 +304,6 @@ function App() {
     return result.data as { positions: number };
   }
 
-  async function importSubsetSnapshots() {
-    if (!projectId) {
-      setMessage("Importiere zuerst die globale Stückliste von Rebrickable.");
-      return;
-    }
-    try {
-      const result = await uploadSubsetSnapshots(projectId);
-      await loadCountingData(projectId);
-      await loadOverview(projectId);
-      setMessage(`${result.positions} Positionen wurden den Anleitungsbereichen zugeordnet.`);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Die Anleitungssnapshots konnten nicht zugeordnet werden.");
-    }
-  }
-
   async function createEmptyProject() {
     try {
       const response = await fetch("/api/v1/projects", {
@@ -351,8 +336,17 @@ function App() {
     try {
       const data = new FormData();
       subsetFiles.forEach((snapshot) => data.append("files", snapshot));
-      const response = await fetch(`/api/v1/projects/${projectId}/import/rebrickable-json`, { method: "POST", body: data });
+      let response = await fetch(`/api/v1/projects/${projectId}/import/rebrickable-json`, { method: "POST", body: data });
       const result = await response.json();
+      if (!response.ok && subsetFiles.length === 4) {
+        response = await fetch(`/api/v1/projects/${projectId}/import/rebrickable-subsets`, { method: "POST", body: data });
+        const allocation = await response.json();
+        if (!response.ok) throw new Error(allocation.detail || result.detail);
+        await loadCountingData(projectId);
+        await loadOverview(projectId);
+        setMessage(`${allocation.data.positions} Positionen wurden den Bereichen zugeordnet.`);
+        return;
+      }
       if (!response.ok) throw new Error(result.detail);
       await loadCountingData(projectId);
       await loadOverview(projectId);
@@ -533,8 +527,7 @@ function App() {
               <label htmlFor="active-subset-files">Rebrickable-JSON-Snapshots</label>
               <input id="active-subset-files" type="file" multiple accept="application/json,.json" onChange={(event) => setSubsetFiles(Array.from(event.target.files ?? []))} />
               <button type="button" onClick={importJsonSnapshots}>JSON-Snapshots importieren</button>
-              <button type="button" onClick={importSubsetSnapshots}>Bereichssnapshots zuordnen</button>
-              <p className="hinweis">JSON-Importe verwenden keine Zugangsdaten oder Browser-Cookies. Die Bereichszuordnung ist für bekannte, vollständig prüfbare Quellen verfügbar.</p>
+              <p className="hinweis">In leeren Projekten entsteht daraus die Inventarliste. Bei einem bestehenden 75978-Projekt werden vier passende Snapshots automatisch den Bereichen zugeordnet. JSON-Importe verwenden keine Zugangsdaten oder Browser-Cookies.</p>
             </section>
             {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
               <h2>Gesamtübersicht</h2>
