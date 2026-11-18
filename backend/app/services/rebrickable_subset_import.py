@@ -351,11 +351,12 @@ def import_rebrickable_json_inventory(
         )
     rows = list(merged.values())
     checksum = hashlib.sha256(prior_checksum.encode() + b"".join(contents)).hexdigest()
+    source_revision = f"v2:{checksum}"
     imported, requirement_count = import_inventory_rows(
         session,
         project,
         provider="rebrickable_snapshot",
-        source_revision=checksum,
+        source_revision=source_revision,
         checksum=checksum,
         rows=rows,
     )
