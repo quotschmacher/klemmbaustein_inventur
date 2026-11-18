@@ -65,3 +65,21 @@ def test_rebrickable_subset_snapshots_allocate_the_four_instruction_sessions() -
         f"/api/v1/projects/{project_id}/inventory?session_id={sessions[4]['id']}"
     ).json()["data"]["items"]
     assert figures_inventory == []
+
+
+def test_empty_project_can_use_a_json_snapshot_as_its_inventory() -> None:
+    client = TestClient(app)
+    project = client.post(
+        "/api/v1/projects",
+        json={"set_num": f"json-{uuid4()}", "label": "JSON-Projekt"},
+    ).json()["data"]
+
+    response = client.post(
+        f"/api/v1/projects/{project['id']}/import/rebrickable-json",
+        files={"files": ("inventar.json", _snapshot(123456, "3001", 5, "Red", 7), "application/json")},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["data"] == {"requirements": 1, "imported": True}
+    inventory = client.get(f"/api/v1/projects/{project['id']}/inventory").json()["data"]["items"]
+    assert [(item["part_num"], item["expected_qty"]) for item in inventory] == [("3001", 7)]

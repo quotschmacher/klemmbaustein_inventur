@@ -319,6 +319,50 @@ function App() {
     }
   }
 
+  async function createEmptyProject() {
+    try {
+      const response = await fetch("/api/v1/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ set_num: setNumber, label, session_labels: _sessionLabels(areas) }),
+      });
+      const project = await response.json();
+      if (!response.ok) throw new Error();
+      const sessionsResponse = await fetch(`/api/v1/projects/${project.data.id}/sessions`);
+      const sessionData = await sessionsResponse.json();
+      if (!sessionsResponse.ok || sessionData.data.length === 0) throw new Error();
+      setProjectId(project.data.id);
+      setSessions(sessionData.data);
+      setSelectedSessionId(sessionData.data[0].id);
+      setItems([]);
+      setView("overview");
+      await loadProjects();
+      setMessage("Leeres Projekt wurde angelegt. Jetzt können JSON-Snapshots importiert werden.");
+    } catch {
+      setMessage("Das leere Projekt konnte nicht angelegt werden.");
+    }
+  }
+
+  async function importJsonSnapshots() {
+    if (!projectId || subsetFiles.length === 0) {
+      setMessage("Lege zuerst ein leeres Projekt an und wähle mindestens einen JSON-Snapshot aus.");
+      return;
+    }
+    try {
+      const data = new FormData();
+      subsetFiles.forEach((snapshot) => data.append("files", snapshot));
+      const response = await fetch(`/api/v1/projects/${projectId}/import/rebrickable-json`, { method: "POST", body: data });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail);
+      await loadCountingData(projectId);
+      await loadOverview(projectId);
+      await loadOrders(projectId);
+      setMessage(`${result.data.requirements} Positionen wurden aus JSON-Snapshots importiert.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Die JSON-Snapshots konnten nicht importiert werden.");
+    }
+  }
+
   async function selectSession(sessionId: string) {
     if (!projectId) return;
     try {
@@ -453,7 +497,7 @@ function App() {
       <section aria-labelledby="seitentitel">
         <p className="kicker">Set-Inventur</p>
         <h1 id="seitentitel">LEGO Inventur</h1>
-        <p>Lege ein Projekt an und importiere ein CSV-Testinventar.</p>
+        <p>Lege ein Projekt an und importiere CSV- oder Rebrickable-JSON-Inventare.</p>
         <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
         {!projectId && projects.length > 0 && <section className="projektliste" aria-label="Gespeicherte Projekte"><h2>Gespeicherte Projekte</h2><label className="archivfilter"><input type="checkbox" checked={showArchivedProjects} onChange={(event) => setShowArchivedProjects(event.target.checked)} /> Archivierte anzeigen</label>{selectedProjectIds.length > 0 && <button type="button" onClick={archiveSelectedProjects}>{selectedProjectIds.length} ausgewählte archivieren</button>}{projects.map((project) => <article key={project.id}>{!project.archived && <input aria-label={`${project.label} auswählen`} type="checkbox" checked={selectedProjectIds.includes(project.id)} onChange={(event) => setSelectedProjectIds((ids) => event.target.checked ? [...ids, project.id] : ids.filter((id) => id !== project.id))} />}<span>{project.label} · {project.set_num}{project.archived ? " · archiviert" : ""}</span>{!project.archived && <button type="button" onClick={() => openProject(project.id)}>Fortsetzen</button>}<button type="button" onClick={() => setProjectArchived(project, !project.archived)}>{project.archived ? "Wiederherstellen" : "Archivieren"}</button></article>)}</section>}
         {!projectId && <form onSubmit={importInventory}>
@@ -465,12 +509,13 @@ function App() {
           <input id="areas" value={areas} placeholder="z. B. Anleitung 1, Anleitung 2" onChange={(event) => setAreas(event.target.value)} />
           <label htmlFor="inventory-file">CSV-Inventar</label>
           <input id="inventory-file" type="file" accept=".csv,text/csv" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
-          <label htmlFor="subset-files">Rebrickable-Anleitungssnapshots</label>
+          <label htmlFor="subset-files">Rebrickable-JSON-Snapshots</label>
           <input id="subset-files" type="file" multiple accept="application/json,.json" onChange={(event) => setSubsetFiles(Array.from(event.target.files ?? []))} />
-          <p className="hinweis">Optional: genau vier vollständige JSON-Antworten für Anleitung 1–4 auswählen. Sie werden nach dem globalen Rebrickable-Import geprüft und zugeordnet.</p>
+          <p className="hinweis">JSON-Snapshots können ein leeres Projekt als Inventarquelle füllen. Bei einem 75978-Rebrickable-Projekt werden vier bekannte Bereichssnapshots zusätzlich automatisch zugeordnet.</p>
           <button type="submit">Inventar importieren</button>
           <button type="button" onClick={importFromRebrickable}>Von Rebrickable importieren</button>
-          <button type="button" onClick={importSubsetSnapshots}>Anleitungssnapshots zuordnen</button>
+          <button type="button" onClick={createEmptyProject}>Leeres Projekt anlegen</button>
+          <button type="button" onClick={importJsonSnapshots}>JSON-Snapshots importieren</button>
         </form>}
         {!projectId && <section className="projektliste" aria-label="Projektbackup wiederherstellen"><h2>Projektbackup wiederherstellen</h2><label htmlFor="restore-file">JSON-Backup</label><input id="restore-file" type="file" accept="application/json,.json" onChange={(event) => setRestoreFile(event.target.files?.[0] ?? null)} /><button type="button" onClick={restoreBackup}>Backup als neues Projekt wiederherstellen</button></section>}
         <p aria-live="polite">{message}</p>
@@ -484,11 +529,12 @@ function App() {
               <button type="button" aria-current={view === "unlisted" ? "page" : undefined} onClick={() => { setView("unlisted"); void loadUnlistedFinds(projectId); }}>Fremdteile</button>
               <button type="button" onClick={startNewProject}>Neues Set importieren</button>
             </nav>
-            <section className="snapshotimport" aria-label="Anleitungssnapshots importieren">
-              <label htmlFor="active-subset-files">Rebrickable-Anleitungssnapshots</label>
+            <section className="snapshotimport" aria-label="JSON-Snapshots importieren">
+              <label htmlFor="active-subset-files">Rebrickable-JSON-Snapshots</label>
               <input id="active-subset-files" type="file" multiple accept="application/json,.json" onChange={(event) => setSubsetFiles(Array.from(event.target.files ?? []))} />
-              <button type="button" onClick={importSubsetSnapshots}>Anleitungssnapshots zuordnen</button>
-              <p className="hinweis">Es werden genau vier vollständige JSON-Snapshots für Anleitung 1–4 geprüft. Zugangsdaten und Browser-Cookies werden nicht verarbeitet.</p>
+              <button type="button" onClick={importJsonSnapshots}>JSON-Snapshots importieren</button>
+              <button type="button" onClick={importSubsetSnapshots}>Bereichssnapshots zuordnen</button>
+              <p className="hinweis">JSON-Importe verwenden keine Zugangsdaten oder Browser-Cookies. Die Bereichszuordnung ist für bekannte, vollständig prüfbare Quellen verfügbar.</p>
             </section>
             {view === "overview" && summary && <section className="uebersicht" aria-label="Gesamtübersicht">
               <h2>Gesamtübersicht</h2>

@@ -38,7 +38,10 @@ from app.services.exports import (
 from app.services.backup import BackupValidationError, project_backup, restore_project_backup
 from app.services.rebrickable import RebrickableClient, RebrickableImportError
 from app.services.rebrickable_project_import import RebrickableProjectImporter
-from app.services.rebrickable_subset_import import import_rebrickable_subset_snapshots
+from app.services.rebrickable_subset_import import (
+    import_rebrickable_json_inventory,
+    import_rebrickable_subset_snapshots,
+)
 from app.services.reconciliation import ReconciliationError, difference_items, project_reconciliation
 from app.services.replacements import (
     ReplacementError,
@@ -243,6 +246,25 @@ async def import_rebrickable_subsets_route(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
     response.status_code = status.HTTP_201_CREATED
     return {"data": {"sessions": result.sessions, "positions": result.positions, "quantity": result.quantity}}
+
+
+@app.post("/api/v1/projects/{project_id}/import/rebrickable-json")
+async def import_rebrickable_json_route(
+    project_id: UUID, response: Response, files: list[UploadFile] = File(...)
+) -> dict[str, dict[str, int | bool]]:
+    factory = create_session_factory()
+    try:
+        with factory.begin() as session:
+            project = session.get(Project, project_id)
+            if project is None:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projekt nicht gefunden.")
+            imported, requirements = import_rebrickable_json_inventory(
+                session, project, [await file.read() for file in files]
+            )
+    except CsvImportError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    response.status_code = status.HTTP_201_CREATED if imported else status.HTTP_200_OK
+    return {"data": {"requirements": requirements, "imported": imported}}
 
 
 @app.get("/api/v1/projects/{project_id}/inventory")

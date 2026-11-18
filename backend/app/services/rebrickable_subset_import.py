@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 from collections import Counter
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ from app.db.models import (
     Project,
     SessionInventoryAllocation,
 )
-from app.services.inventory_import import CsvImportError
+from app.services.inventory_import import CsvImportError, CsvRow, import_inventory_rows
 from app.services.rebrickable_project_import import canonical_set_num
 
 
@@ -226,4 +227,45 @@ def import_rebrickable_subset_snapshots(
 
     return SubsetImportResult(
         sessions=len(expected_labels), positions=snapshot_positions, quantity=snapshot_quantity
+    )
+
+
+def import_rebrickable_json_inventory(
+    session: Session, project: Project, snapshots: Iterable[bytes]
+) -> tuple[bool, int]:
+    contents = list(snapshots)
+    if not contents:
+        raise CsvImportError("Bitte lade mindestens einen Rebrickable-JSON-Snapshot hoch.")
+    if project.inventory_snapshot_id is not None:
+        raise CsvImportError("Dieses Projekt besitzt bereits eine Stückliste.")
+    quantities: Counter[tuple[str, int, InventoryClass]] = Counter()
+    provenance: dict[tuple[str, int, InventoryClass], list[tuple[str, str, int]]] = {}
+    for snapshot in (parse_rebrickable_subset_snapshot(content) for content in contents):
+        for position in snapshot.positions:
+            key = (position.part_num, position.color_id, position.inventory_class)
+            quantities[key] += position.quantity
+            provenance.setdefault(key, []).append(("rebrickable_snapshot", snapshot.inventory_id, position.quantity))
+    rows = [
+        CsvRow(
+            part_num=part_num,
+            color_id=color_id,
+            color_name=f"Farbe {color_id}",
+            quantity=quantity,
+            inventory_class=inventory_class,
+            part_name=part_num,
+            image_url=None,
+            source_type="rebrickable_snapshot",
+            source_ref="json",
+            provenance=tuple(provenance[(part_num, color_id, inventory_class)]),
+        )
+        for (part_num, color_id, inventory_class), quantity in quantities.items()
+    ]
+    checksum = hashlib.sha256(b"".join(contents)).hexdigest()
+    return import_inventory_rows(
+        session,
+        project,
+        provider="rebrickable_snapshot",
+        source_revision=checksum,
+        checksum=checksum,
+        rows=rows,
     )
