@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import (
     Color,
+    CountBalance,
     CountingSession,
     InventoryClass,
     InventoryRequirement,
@@ -236,8 +237,37 @@ def import_rebrickable_json_inventory(
     contents = list(snapshots)
     if not contents:
         raise CsvImportError("Bitte lade mindestens einen Rebrickable-JSON-Snapshot hoch.")
+    existing_rows: list[CsvRow] = []
+    prior_checksum = ""
     if project.inventory_snapshot_id is not None:
-        raise CsvImportError("Dieses Projekt besitzt bereits eine Stückliste.")
+        has_counts = session.scalar(
+            select(CountBalance.id)
+            .join(CountingSession, CountBalance.session_id == CountingSession.id)
+            .where(CountingSession.project_id == project.id)
+            .limit(1)
+        )
+        if has_counts is not None:
+            raise CsvImportError("Nach Beginn der Zählung kann keine weitere JSON-Teilliste ergänzt werden.")
+        existing_rows = [
+            CsvRow(
+                part_num=part.part_num,
+                color_id=color.provider_color_id,
+                color_name=color.name,
+                quantity=requirement.expected_qty,
+                inventory_class=requirement.inventory_class,
+                part_name=part.name,
+                image_url=part.image_url,
+                source_type="previous_json_snapshot",
+                source_ref=str(project.inventory_snapshot_id),
+            )
+            for requirement, part, color in session.execute(
+                select(InventoryRequirement, PartCatalog, Color)
+                .join(PartCatalog, InventoryRequirement.part_id == PartCatalog.id)
+                .join(Color, InventoryRequirement.color_id == Color.id)
+                .where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
+            ).all()
+        ]
+        prior_checksum = str(project.inventory_snapshot_id)
     quantities: Counter[tuple[str, int, InventoryClass]] = Counter()
     provenance: dict[tuple[str, int, InventoryClass], list[tuple[str, str, int]]] = {}
     for snapshot in (parse_rebrickable_subset_snapshot(content) for content in contents):
@@ -245,7 +275,7 @@ def import_rebrickable_json_inventory(
             key = (position.part_num, position.color_id, position.inventory_class)
             quantities[key] += position.quantity
             provenance.setdefault(key, []).append(("rebrickable_snapshot", snapshot.inventory_id, position.quantity))
-    rows = [
+    new_rows = [
         CsvRow(
             part_num=part_num,
             color_id=color_id,
@@ -260,7 +290,24 @@ def import_rebrickable_json_inventory(
         )
         for (part_num, color_id, inventory_class), quantity in quantities.items()
     ]
-    checksum = hashlib.sha256(b"".join(contents)).hexdigest()
+    merged: dict[tuple[str, int, InventoryClass], CsvRow] = {}
+    for row in [*existing_rows, *new_rows]:
+        key = (row.part_num, row.color_id, row.inventory_class)
+        previous = merged.get(key)
+        merged[key] = row if previous is None else CsvRow(
+            part_num=row.part_num,
+            color_id=row.color_id,
+            color_name=row.color_name,
+            quantity=previous.quantity + row.quantity,
+            inventory_class=row.inventory_class,
+            part_name=row.part_name,
+            image_url=row.image_url or previous.image_url,
+            source_type=row.source_type,
+            source_ref=row.source_ref,
+            provenance=(*previous.provenance, *row.provenance),
+        )
+    rows = list(merged.values())
+    checksum = hashlib.sha256(prior_checksum.encode() + b"".join(contents)).hexdigest()
     return import_inventory_rows(
         session,
         project,

@@ -83,3 +83,23 @@ def test_empty_project_can_use_a_json_snapshot_as_its_inventory() -> None:
     assert response.json()["data"] == {"requirements": 1, "imported": True}
     inventory = client.get(f"/api/v1/projects/{project['id']}/inventory").json()["data"]["items"]
     assert [(item["part_num"], item["expected_qty"]) for item in inventory] == [("3001", 7)]
+
+
+def test_empty_project_can_append_a_second_json_snapshot_before_counting() -> None:
+    client = TestClient(app)
+    project = client.post(
+        "/api/v1/projects",
+        json={"set_num": f"json-{uuid4()}", "label": "Mehrteilige JSON-Inventur"},
+    ).json()["data"]
+    for inventory_id, part_num, color_id, color_name, quantity in [
+        (123456, "3001", 5, "Red", 7),
+        (123457, "3002", 1, "Blue", 3),
+    ]:
+        response = client.post(
+            f"/api/v1/projects/{project['id']}/import/rebrickable-json",
+            files={"files": ("inventar.json", _snapshot(inventory_id, part_num, color_id, color_name, quantity), "application/json")},
+        )
+        assert response.status_code == 201
+
+    inventory = client.get(f"/api/v1/projects/{project['id']}/inventory").json()["data"]["items"]
+    assert [(item["part_num"], item["expected_qty"]) for item in inventory] == [("3002", 3), ("3001", 7)]
