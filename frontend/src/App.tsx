@@ -144,7 +144,19 @@ function App() {
       setView("overview");
       setMessage("Projekt wurde fortgesetzt.");
     } catch {
-      setMessage("Das gespeicherte Projekt konnte nicht geladen werden.");
+      try {
+        const sessionsResponse = await fetch(`/api/v1/projects/${nextProjectId}/sessions`);
+        const sessionData = await sessionsResponse.json();
+        if (!sessionsResponse.ok || sessionData.data.length === 0) throw new Error();
+        setProjectId(nextProjectId);
+        setSessions(sessionData.data);
+        setSelectedSessionId(sessionData.data[0].id);
+        setItems([]);
+        setView("overview");
+        setMessage("Leeres Projekt wurde fortgesetzt. Jetzt können JSON-Snapshots importiert werden.");
+      } catch {
+        setMessage("Das gespeicherte Projekt konnte nicht geladen werden.");
+      }
     }
   }
 

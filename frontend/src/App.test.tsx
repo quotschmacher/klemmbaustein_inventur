@@ -53,3 +53,22 @@ test("zeigt nach dem Import die Gesamtübersicht", async () => {
   expect(screen.getByRole("button", { name: "Neues Set importieren" })).toBeInTheDocument();
   await waitFor(() => expect(fetch).toHaveBeenCalled());
 });
+
+test("setzt ein leeres Projekt für den JSON-Import fort", async () => {
+  const responses = [
+    { ok: true, data: [{ id: "project-empty", label: "Teil­anleitungen", set_num: "75978", status: "pending_import" }] },
+    { ok: true, data: [{ id: "session-1", label: "Unsortiert", status: "in_progress", counted_positions: 0 }] },
+    { ok: false, data: { detail: "Inventar nicht gefunden." } },
+    { ok: true, data: [{ id: "session-1", label: "Unsortiert", status: "in_progress", counted_positions: 0 }] },
+  ];
+  vi.stubGlobal("fetch", vi.fn(() => {
+    const next = responses.shift()!;
+    return Promise.resolve({ ok: next.ok, json: () => Promise.resolve(next) });
+  }));
+  render(<App />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Fortsetzen" }));
+
+  expect(await screen.findByLabelText("JSON-Snapshots importieren")).toBeInTheDocument();
+  expect(screen.getByText("Leeres Projekt wurde fortgesetzt. Jetzt können JSON-Snapshots importiert werden.")).toBeInTheDocument();
+});
