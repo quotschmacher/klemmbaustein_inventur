@@ -103,3 +103,9 @@ def test_empty_project_can_append_a_second_json_snapshot_before_counting() -> No
 
     inventory = client.get(f"/api/v1/projects/{project['id']}/inventory").json()["data"]["items"]
     assert [(item["part_num"], item["expected_qty"]) for item in inventory] == [("3002", 3), ("3001", 7)]
+    sessions = client.get(f"/api/v1/projects/{project['id']}/sessions").json()["data"]
+    assert [item["label"] for item in sessions] == ["Snapshot 123456", "Snapshot 123457"]
+    first = client.get(f"/api/v1/projects/{project['id']}/inventory?session_id={sessions[0]['id']}").json()["data"]["items"]
+    second = client.get(f"/api/v1/projects/{project['id']}/inventory?session_id={sessions[1]['id']}").json()["data"]["items"]
+    assert [(item["part_num"], item["expected_qty"]) for item in first] == [("3001", 7)]
+    assert [(item["part_num"], item["expected_qty"]) for item in second] == [("3002", 3)]

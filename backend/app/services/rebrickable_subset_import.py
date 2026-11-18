@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from html.parser import HTMLParser
 from typing import Iterable
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.db.models import (
@@ -17,6 +17,7 @@ from app.db.models import (
     CountingSession,
     InventoryClass,
     InventoryRequirement,
+    InventoryProvenance,
     LegoSet,
     PartCatalog,
     Project,
@@ -248,6 +249,18 @@ def import_rebrickable_json_inventory(
         )
         if has_counts is not None:
             raise CsvImportError("Nach Beginn der Zählung kann keine weitere JSON-Teilliste ergänzt werden.")
+        previous_provenance: dict[object, list[tuple[str, str, int]]] = {}
+        for requirement_id, source_type, source_ref, quantity in session.execute(
+            select(
+                InventoryProvenance.requirement_id,
+                InventoryProvenance.source_type,
+                InventoryProvenance.source_ref,
+                InventoryProvenance.quantity,
+            ).where(InventoryProvenance.requirement_id.in_(
+                select(InventoryRequirement.id).where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
+            ))
+        ).all():
+            previous_provenance.setdefault(requirement_id, []).append((source_type, source_ref, quantity))
         existing_rows = [
             CsvRow(
                 part_num=part.part_num,
@@ -259,6 +272,7 @@ def import_rebrickable_json_inventory(
                 image_url=part.image_url,
                 source_type="previous_json_snapshot",
                 source_ref=str(project.inventory_snapshot_id),
+                provenance=tuple(previous_provenance.get(requirement.id, [])),
             )
             for requirement, part, color in session.execute(
                 select(InventoryRequirement, PartCatalog, Color)
@@ -268,9 +282,10 @@ def import_rebrickable_json_inventory(
             ).all()
         ]
         prior_checksum = str(project.inventory_snapshot_id)
+    parsed_snapshots = [parse_rebrickable_subset_snapshot(content) for content in contents]
     quantities: Counter[tuple[str, int, InventoryClass]] = Counter()
     provenance: dict[tuple[str, int, InventoryClass], list[tuple[str, str, int]]] = {}
-    for snapshot in (parse_rebrickable_subset_snapshot(content) for content in contents):
+    for snapshot in parsed_snapshots:
         for position in snapshot.positions:
             key = (position.part_num, position.color_id, position.inventory_class)
             quantities[key] += position.quantity
@@ -308,7 +323,7 @@ def import_rebrickable_json_inventory(
         )
     rows = list(merged.values())
     checksum = hashlib.sha256(prior_checksum.encode() + b"".join(contents)).hexdigest()
-    return import_inventory_rows(
+    imported, requirement_count = import_inventory_rows(
         session,
         project,
         provider="rebrickable_snapshot",
@@ -316,3 +331,66 @@ def import_rebrickable_json_inventory(
         checksum=checksum,
         rows=rows,
     )
+    _rebuild_snapshot_sessions(session, project, parsed_snapshots)
+    return imported, requirement_count
+
+
+def _rebuild_snapshot_sessions(
+    session: Session, project: Project, imported_snapshots: list[ParsedSnapshot]
+) -> None:
+    if project.inventory_snapshot_id is None:
+        return
+    rows = session.execute(
+        select(InventoryRequirement, InventoryProvenance)
+        .join(InventoryProvenance, InventoryProvenance.requirement_id == InventoryRequirement.id)
+        .where(
+            InventoryRequirement.snapshot_id == project.inventory_snapshot_id,
+            InventoryProvenance.source_type == "rebrickable_snapshot",
+        )
+    ).all()
+    quantities: Counter[tuple[str, object]] = Counter()
+    for requirement, provenance in rows:
+        quantities[(provenance.source_ref, requirement.id)] += provenance.quantity
+    requirement_by_key = {
+        (part.part_num, color.provider_color_id, requirement.inventory_class): requirement.id
+        for requirement, part, color in session.execute(
+            select(InventoryRequirement, PartCatalog, Color)
+            .join(PartCatalog, InventoryRequirement.part_id == PartCatalog.id)
+            .join(Color, InventoryRequirement.color_id == Color.id)
+            .where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
+        ).all()
+    }
+    imported_quantities: Counter[tuple[str, object]] = Counter()
+    for snapshot in imported_snapshots:
+        for position in snapshot.positions:
+            requirement_id = requirement_by_key[(position.part_num, position.color_id, position.inventory_class)]
+            imported_quantities[(snapshot.inventory_id, requirement_id)] += position.quantity
+    for key, quantity in imported_quantities.items():
+        quantities[key] = quantity
+    source_refs = {source_ref for source_ref, _ in quantities}
+    source_refs.update(snapshot.inventory_id for snapshot in imported_snapshots)
+    source_refs = sorted(source_refs)
+    sessions = session.scalars(
+        select(CountingSession).where(CountingSession.project_id == project.id).order_by(CountingSession.position)
+    ).all()
+    by_label = {item.label: item for item in sessions}
+    default = next((item for item in sessions if item.label == "Unsortiert"), None)
+    targets: dict[str, CountingSession] = {}
+    for index, source_ref in enumerate(source_refs):
+        label = f"Snapshot {source_ref}"
+        target = by_label.get(label)
+        if target is None and default is not None:
+            target = default
+            target.label = label
+            default = None
+        if target is None:
+            target = CountingSession(project_id=project.id, label=label, position=len(sessions), mandatory=True)
+            session.add(target)
+            session.flush()
+            sessions.append(target)
+        targets[source_ref] = target
+    session.execute(delete(SessionInventoryAllocation).where(SessionInventoryAllocation.session_id.in_([item.id for item in targets.values()])))
+    for (source_ref, requirement_id), quantity in quantities.items():
+        session.add(SessionInventoryAllocation(session_id=targets[source_ref].id, requirement_id=requirement_id, expected_qty=quantity))
+    for target in targets.values():
+        target.inventory_allocation_enabled = True
