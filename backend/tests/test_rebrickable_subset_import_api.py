@@ -4,6 +4,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.rebrickable_subset_import import parse_rebrickable_subset_snapshot
 
 
 CSV = """part_num,color_id,color_name,quantity,inventory_class,part_name,source_type,source_ref
@@ -25,6 +26,15 @@ def _snapshot(inventory_id: int, part_num: str, color_id: int, color_name: str, 
             <img data-src="https://cdn.rebrickable.com/media/thumbs/parts/test.png"></div></a></div>''',
         }
     )
+
+
+def test_snapshot_parser_keeps_display_metadata() -> None:
+    parsed = parse_rebrickable_subset_snapshot(_snapshot(123456, "3001", 5, "Red", 7).encode())
+
+    assert parsed.positions[0].part_name == "Testteil"
+    assert parsed.positions[0].color_name == "Red"
+    assert parsed.positions[0].color_rgb == "112233"
+    assert parsed.positions[0].image_url == "https://cdn.rebrickable.com/media/thumbs/parts/test.png"
 
 
 def test_rebrickable_subset_snapshots_allocate_the_four_instruction_sessions() -> None:

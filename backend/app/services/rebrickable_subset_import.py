@@ -4,7 +4,7 @@ import json
 import hashlib
 import re
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html.parser import HTMLParser
 from typing import Iterable
 
@@ -45,7 +45,11 @@ _PART_REF_RE = re.compile(r"^/parts/([^/]+)/")
 @dataclass(frozen=True)
 class SnapshotPosition:
     part_num: str
+    part_name: str
     color_id: int
+    color_name: str
+    color_rgb: str | None
+    image_url: str | None
     inventory_class: InventoryClass
     quantity: int
 
@@ -68,6 +72,7 @@ class _SnapshotHtmlParser(HTMLParser):
         super().__init__(convert_charrefs=True)
         self._part_num: str | None = None
         self.positions: list[SnapshotPosition] = []
+        self._awaiting_image = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         attributes = dict(attrs)
@@ -75,6 +80,12 @@ class _SnapshotHtmlParser(HTMLParser):
             part_ref = _PART_REF_RE.match(attributes.get("href") or "")
             if part_ref:
                 self._part_num = part_ref.group(1)
+            return
+        if tag == "img" and self._awaiting_image and self.positions:
+            image_url = attributes.get("data-src") or attributes.get("src")
+            if image_url and not image_url.startswith("data:"):
+                self.positions[-1] = replace(self.positions[-1], image_url=image_url)
+                self._awaiting_image = False
             return
         if tag != "div":
             return
@@ -96,11 +107,16 @@ class _SnapshotHtmlParser(HTMLParser):
         self.positions.append(
             SnapshotPosition(
                 part_num=self._part_num,
+                part_name=attributes.get("data-part_name") or self._part_num,
                 color_id=color_id,
+                color_name=attributes.get("data-color_name") or f"Farbe {color_id}",
+                color_rgb=(attributes.get("data-color_hsv") or "").split()[-1].lstrip("#") or None,
+                image_url=None,
                 inventory_class=inventory_class,
                 quantity=quantity,
             )
         )
+        self._awaiting_image = True
 
 
 def parse_rebrickable_subset_snapshot(content: bytes) -> ParsedSnapshot:
@@ -294,23 +310,26 @@ def import_rebrickable_json_inventory(
     parsed_snapshots = [parse_rebrickable_subset_snapshot(content) for content in contents]
     quantities: Counter[tuple[str, int, InventoryClass]] = Counter()
     provenance: dict[tuple[str, int, InventoryClass], list[tuple[str, str, int]]] = {}
+    metadata: dict[tuple[str, int, InventoryClass], SnapshotPosition] = {}
     for snapshot in parsed_snapshots:
         for position in snapshot.positions:
             key = (position.part_num, position.color_id, position.inventory_class)
             quantities[key] += position.quantity
             provenance.setdefault(key, []).append(("rebrickable_snapshot", snapshot.inventory_id, position.quantity))
+            metadata.setdefault(key, position)
     new_rows = [
         CsvRow(
             part_num=part_num,
             color_id=color_id,
-            color_name=f"Farbe {color_id}",
+            color_name=metadata[(part_num, color_id, inventory_class)].color_name,
             quantity=quantity,
             inventory_class=inventory_class,
-            part_name=part_num,
-            image_url=None,
+            part_name=metadata[(part_num, color_id, inventory_class)].part_name,
+            image_url=metadata[(part_num, color_id, inventory_class)].image_url,
             source_type="rebrickable_snapshot",
             source_ref="json",
             provenance=tuple(provenance[(part_num, color_id, inventory_class)]),
+            color_rgb=metadata[(part_num, color_id, inventory_class)].color_rgb,
         )
         for (part_num, color_id, inventory_class), quantity in quantities.items()
     ]
