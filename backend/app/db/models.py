@@ -165,6 +165,7 @@ class InventoryRequirement(Base):
         value_enum(InventoryClass), nullable=False
     )
     expected_qty: Mapped[int] = mapped_column(BIGINT, nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(2048))
 
 
 class InventoryProvenance(Base):

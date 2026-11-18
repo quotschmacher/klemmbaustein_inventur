@@ -150,6 +150,10 @@ def import_inventory_rows(
             session.flush()
         elif color.rgb is None and row.color_rgb:
             color.rgb = row.color_rgb
+        if row.color_name and not row.color_name.startswith("Farbe "):
+            color.name = row.color_name
+        if row.color_rgb:
+            color.rgb = row.color_rgb
         part = session.scalar(
             select(PartCatalog).where(PartCatalog.provider == provider, PartCatalog.part_num == row.part_num)
         )
@@ -164,12 +168,15 @@ def import_inventory_rows(
             session.flush()
         elif part.image_url is None and row.image_url:
             part.image_url = row.image_url
+        if row.part_name and row.part_name != row.part_num:
+            part.name = row.part_name
         requirement = InventoryRequirement(
             snapshot_id=snapshot.id,
             part_id=part.id,
             color_id=color.id,
             inventory_class=row.inventory_class,
             expected_qty=row.quantity,
+            image_url=row.image_url,
         )
         session.add(requirement)
         session.flush()

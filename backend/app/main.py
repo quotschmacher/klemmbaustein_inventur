@@ -341,7 +341,7 @@ def inventory_route(
             "id": str(requirement.id),
             "part_num": part.part_num,
             "part_name": part.name,
-            "image_url": part.image_url,
+            "image_url": requirement.image_url or part.image_url,
             "color_id": color.provider_color_id,
             "color_name": color.name,
             "color_rgb": color.rgb,
