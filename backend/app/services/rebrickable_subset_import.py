@@ -160,6 +160,15 @@ def import_rebrickable_subset_snapshots(
         ).all()
     }
     expected_labels = set(_EXPECTED_INVENTORIES.values())
+    if not expected_labels <= set(sessions) and set(sessions) == {"Unsortiert"}:
+        first = sessions.pop("Unsortiert")
+        first.label = "Anleitung 1"
+        sessions[first.label] = first
+        for position, label in enumerate(["Anleitung 2", "Anleitung 3", "Anleitung 4", "Figuren"], start=1):
+            created = CountingSession(project_id=project.id, label=label, position=position, mandatory=True)
+            session.add(created)
+            sessions[label] = created
+        session.flush()
     if not expected_labels <= set(sessions):
         raise CsvImportError("Die vier Anleitungsbereiche fehlen im Projekt.")
     if any(item.inventory_allocation_enabled for item in sessions.values()):

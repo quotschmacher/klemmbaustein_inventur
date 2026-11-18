@@ -125,7 +125,7 @@ def test_75978_import_uses_parent_inventory_without_nonexistent_submodel_parts()
         sessions = session.scalars(
             select(CountingSession).where(CountingSession.project_id == project_id).order_by(CountingSession.position)
         ).all()
-        assert [item.label for item in sessions] == ["Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Figuren"]
+        assert [item.label for item in sessions] == ["Unsortiert"]
         assert not any(item.inventory_allocation_enabled for item in sessions)
 
     client = TestClient(app)

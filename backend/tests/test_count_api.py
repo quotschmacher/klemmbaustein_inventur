@@ -10,16 +10,14 @@ CSV = """part_num,color_id,color_name,quantity,inventory_class,part_name,source_
 """
 
 
-def test_default_sessions_and_count_mutations_are_idempotent() -> None:
+def test_default_session_and_count_mutations_are_idempotent() -> None:
     client = TestClient(app)
     project = client.post(
         "/api/v1/projects",
         json={"set_num": "75978", "label": "Zähltest"},
     ).json()["data"]
     sessions = client.get(f"/api/v1/projects/{project['id']}/sessions")
-    assert [item["label"] for item in sessions.json()["data"]] == [
-        "Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Figuren"
-    ]
+    assert [item["label"] for item in sessions.json()["data"]] == ["Unsortiert"]
 
     client.post(
         f"/api/v1/projects/{project['id']}/import/csv",

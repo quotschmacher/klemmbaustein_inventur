@@ -21,7 +21,8 @@ def _adjust(client: TestClient, session_id: str, item_id: str, delta: int) -> No
 def test_summary_marks_gaps_as_provisional_until_required_sessions_complete() -> None:
     client = TestClient(app)
     project = client.post(
-        "/api/v1/projects", json={"set_num": "75978", "label": "Summen-Test"}
+        "/api/v1/projects",
+        json={"set_num": "75978", "label": "Summen-Test", "session_labels": ["Bereich A", "Bereich B"]},
     ).json()["data"]
     sessions = client.get(f"/api/v1/projects/{project['id']}/sessions").json()["data"]
     client.post(f"/api/v1/projects/{project['id']}/import/csv", files={"file": ("inventory.csv", CSV, "text/csv")})
