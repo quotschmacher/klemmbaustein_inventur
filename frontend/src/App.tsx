@@ -435,6 +435,25 @@ function App() {
     }
   }
 
+  async function renameSession(session: CountingSession) {
+    if (!projectId) return;
+    const label = window.prompt("Neuer Name für den Bereich:", session.label)?.trim();
+    if (!label || label === session.label) return;
+    try {
+      const response = await fetch(`/api/v1/sessions/${session.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ label }),
+      });
+      if (!response.ok) throw new Error();
+      await loadCountingData(projectId, selectedSessionId ?? session.id);
+      await loadOverview(projectId);
+      setMessage(`Bereich wurde in „${label}“ umbenannt.`);
+    } catch {
+      setMessage("Der Bereichsname konnte nicht gespeichert werden.");
+    }
+  }
+
   async function createCombinedReplacement() {
     if (!projectId) return;
     try {
@@ -555,7 +574,7 @@ function App() {
                 <article><h3>{summary.confirmed_missing_units > 0 ? "Bestätigte Fehlteile" : "Vorläufige Differenz"}</h3><strong>{summary.confirmed_missing_units || summary.provisional_gap_units}</strong><span>{summary.confirmed_missing_units > 0 ? "Teile fehlen" : "noch offen"}</span></article>
               </div>
               <h3>Bereiche</h3>
-              <div className="bereichskarten">{sessions.map((session) => <article key={session.id}><h4>{session.label}</h4><p>{session.status === "completed" ? "Abgeschlossen" : "In Bearbeitung"} · {session.counted_positions} Positionen erfasst</p><button type="button" onClick={() => { setView("count"); selectSession(session.id); }}>Fortsetzen</button>{session.status === "completed" ? <button type="button" onClick={() => setSessionStatus(session, "in_progress")}>Wieder öffnen</button> : <button type="button" onClick={() => setSessionStatus(session, "completed")}>Abschließen</button>}</article>)}</div>
+              <div className="bereichskarten">{sessions.map((session) => <article key={session.id}><h4>{session.label}</h4><p>{session.status === "completed" ? "Abgeschlossen" : "In Bearbeitung"} · {session.counted_positions} Positionen erfasst</p><button type="button" onClick={() => renameSession(session)}>Umbenennen</button><button type="button" onClick={() => { setView("count"); selectSession(session.id); }}>Fortsetzen</button>{session.status === "completed" ? <button type="button" onClick={() => setSessionStatus(session, "in_progress")}>Wieder öffnen</button> : <button type="button" onClick={() => setSessionStatus(session, "completed")}>Abschließen</button>}</article>)}</div>
               {surplusItems.length > 0 && <section className="differenzen"><h3>Aktueller globaler Überschuss</h3><ul>{surplusItems.map((item) => <li key={item.id}>{item.part_num} – {item.part_name}, {item.color_name}: +{item.surplus_quantity}</li>)}</ul></section>}
             </section>}
             {view === "orders" && <section className="bestellungen" aria-label="Fehlteile und Bestellungen">
