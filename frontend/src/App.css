@@ -260,17 +260,11 @@ td {
   vertical-align: middle;
 }
 
-td:last-child {
-  display: flex;
-  gap: 0.25rem;
-  align-items: center;
-}
-
-td:last-child button {
+.zaehlsteuerung button {
   min-width: 2.25rem;
 }
 
-td:last-child input {
+.zaehlsteuerung input {
   width: 4.25rem;
   text-align: center;
 }
