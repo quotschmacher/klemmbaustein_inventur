@@ -347,6 +347,41 @@ td:last-child input {
   font-size: 0.875rem;
 }
 
+.farbdropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.farbdropdown > button {
+  min-width: 16rem;
+  text-align: left;
+}
+
+.farbdropdown-menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  display: grid;
+  width: max-content;
+  min-width: 16rem;
+  max-height: 18rem;
+  overflow-y: auto;
+  padding: 0.25rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--card);
+  box-shadow: 0 0.75rem 2rem rgb(31 41 55 / 20%);
+}
+
+.farbdropdown-menu button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: left;
+}
+
 @media (max-width: 760px) {
   .startseite { padding: 1rem; place-items: start; }
   .startseite > section { padding: 1.25rem; }
