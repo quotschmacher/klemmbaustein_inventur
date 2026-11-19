@@ -382,6 +382,12 @@ td:last-child input {
   text-align: left;
 }
 
+.farbdropdown-menu button.erfasst {
+  color: #6b7280;
+  background: #f3f4f6;
+  filter: saturate(0.5);
+}
+
 @media (max-width: 760px) {
   .startseite { padding: 1rem; place-items: start; }
   .startseite > section { padding: 1.25rem; }
