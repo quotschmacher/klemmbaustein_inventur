@@ -40,6 +40,21 @@ curl -fsS http://localhost:8080/api/health
 
 `docker compose down` stoppt die Container, erhält jedoch das benannte Volume `lego-inventur_pgdata`. Nie `docker compose down -v` verwenden, wenn Daten erhalten bleiben sollen.
 
+## GitHub Container Registry
+
+Jeder Push nach `main` veröffentlicht zwei GHCR-Images: `ghcr.io/quotschmacher/klemmbaustein_inventur-api` und `ghcr.io/quotschmacher/klemmbaustein_inventur-web`. Beide erhalten die Tags `latest` und den siebenziffrigen Git-Kurz-Commit, beispielsweise `14f494d`.
+
+Für den Betrieb ohne lokalen Build:
+
+```bash
+cp .env.example .env
+# POSTGRES_PASSWORD in .env setzen; optional IMAGE_TAG=14f494d zum Anheften einer Version.
+docker compose -f compose.ghcr.yaml pull
+docker compose -f compose.ghcr.yaml up -d
+```
+
+`compose.ghcr.yaml` verwendet ausschließlich veröffentlichte Images. Der Dienst `migrate` nutzt dasselbe API-Image und führt die Migrationen vor API und Web aus.
+
 ## Datenexport und Projekt-Restore
 
 Die API stellt pro Projekt diese Downloads bereit:

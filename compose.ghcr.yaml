@@ -1,0 +1,69 @@
+# Betrieb mit den via GitHub Actions veröffentlichten GHCR-Images.
+# Einmalig: .env.example nach .env kopieren und POSTGRES_PASSWORD setzen.
+# Optional: IMAGE_TAG auf einen geprüften Kurz-Commit wie 14f494d setzen.
+name: lego-inventur
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-lego_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-lego}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    networks: [internal]
+
+  migrate:
+    image: ghcr.io/quotschmacher/klemmbaustein_inventur-api:${IMAGE_TAG:-latest}
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+
+  api:
+    image: ghcr.io/quotschmacher/klemmbaustein_inventur-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
+      REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY:-}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [internal]
+
+  web:
+    image: ghcr.io/quotschmacher/klemmbaustein_inventur-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [internal]
+
+networks:
+  internal:
+    internal: false
+
+volumes:
+  pgdata:
