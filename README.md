@@ -48,7 +48,7 @@ Für den Betrieb ohne lokalen Build:
 
 ```bash
 cp .env.example .env
-# POSTGRES_PASSWORD in .env setzen; optional IMAGE_TAG=14f494d zum Anheften einer Version.
+# POSTGRES_PASSWORD in .env setzen; optional IMAGE_TAG=14f494d und WEB_PORT=8081 setzen.
 docker compose -f compose.ghcr.yaml pull
 docker compose -f compose.ghcr.yaml up -d
 ```
