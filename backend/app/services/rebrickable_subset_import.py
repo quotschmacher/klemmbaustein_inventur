@@ -19,6 +19,7 @@ from app.db.models import (
     InventoryClass,
     InventoryRequirement,
     InventoryProvenance,
+    InventorySnapshot,
     LegoSet,
     PartCatalog,
     Project,
@@ -265,6 +266,9 @@ def import_rebrickable_json_inventory(
     if not uploads:
         raise CsvImportError("Wähle mindestens einen Rebrickable-JSON-Snapshot aus.")
     contents = [content for _, content in uploads]
+    current_snapshot = session.get(InventorySnapshot, project.inventory_snapshot_id) if project.inventory_snapshot_id else None
+    if current_snapshot is not None and current_snapshot.provider == "rebrickable":
+        return _allocate_parent_inventory_snapshots(session, project, uploads)
     existing_rows: list[CsvRow] = []
     prior_checksum = ""
     if project.inventory_snapshot_id is not None:
@@ -369,6 +373,87 @@ def import_rebrickable_json_inventory(
     )
     _rebuild_snapshot_sessions(session, project, parsed_snapshots, session_labels)
     return imported, requirement_count
+
+
+def _allocate_parent_inventory_snapshots(
+    session: Session, project: Project, uploads: list[tuple[str, bytes]]
+) -> tuple[bool, int]:
+    if project.inventory_snapshot_id is None:
+        raise CsvImportError("Importiere zuerst die globale Stückliste des Sets.")
+    if session.scalar(
+        select(CountBalance.id)
+        .join(CountingSession, CountBalance.session_id == CountingSession.id)
+        .where(CountingSession.project_id == project.id)
+        .limit(1)
+    ) is not None:
+        raise CsvImportError("Nach Beginn der Zählung können keine weiteren JSON-Snapshots zugeordnet werden.")
+
+    parsed_uploads = [(Path(filename).stem or "Snapshot", parse_rebrickable_subset_snapshot(content)) for filename, content in uploads]
+    labels = [label for label, _ in parsed_uploads]
+    if len(labels) != len(set(labels)):
+        raise CsvImportError("Die Namen der hochgeladenen JSON-Dateien müssen eindeutig sein.")
+    requirements = session.execute(
+        select(InventoryRequirement, PartCatalog, Color)
+        .join(PartCatalog, InventoryRequirement.part_id == PartCatalog.id)
+        .join(Color, InventoryRequirement.color_id == Color.id)
+        .where(InventoryRequirement.snapshot_id == project.inventory_snapshot_id)
+    ).all()
+    requirement_by_key = {
+        (part.part_num, color.provider_color_id, requirement.inventory_class): requirement
+        for requirement, part, color in requirements
+    }
+    sessions = session.scalars(
+        select(CountingSession).where(CountingSession.project_id == project.id).order_by(CountingSession.position)
+    ).all()
+    by_label = {item.label: item for item in sessions}
+    if any(label in by_label for label in labels):
+        raise CsvImportError("Für mindestens eine JSON-Datei existiert bereits ein Bereich mit diesem Namen.")
+    residual = by_label.get("Restliche Setbestandteile") or by_label.get("Unsortiert")
+    if residual is None:
+        residual = CountingSession(project_id=project.id, label="Restliche Setbestandteile", position=0, mandatory=True)
+        session.add(residual)
+        session.flush()
+        sessions.append(residual)
+    else:
+        residual.label = "Restliche Setbestandteile"
+
+    allocated: Counter[object] = Counter()
+    for requirement_id, quantity in session.execute(
+        select(SessionInventoryAllocation.requirement_id, SessionInventoryAllocation.expected_qty)
+        .join(CountingSession, SessionInventoryAllocation.session_id == CountingSession.id)
+        .where(CountingSession.project_id == project.id, CountingSession.id != residual.id)
+    ).all():
+        allocated[requirement_id] += quantity
+
+    pending: list[tuple[CountingSession, InventoryRequirement, int]] = []
+    position = max((item.position for item in sessions), default=-1) + 1
+    for label, snapshot in parsed_uploads:
+        target = CountingSession(project_id=project.id, label=label, position=position, mandatory=True)
+        position += 1
+        session.add(target)
+        session.flush()
+        quantities: Counter[tuple[str, int, InventoryClass]] = Counter()
+        for item in snapshot.positions:
+            quantities[(item.part_num, item.color_id, item.inventory_class)] += item.quantity
+        for key, quantity in quantities.items():
+            requirement = requirement_by_key.get(key)
+            if requirement is None:
+                raise CsvImportError(f"{label} enthält {key[0]} in Farbe {key[1]}, das nicht in der Gesamtstückliste liegt.")
+            if allocated[requirement.id] + quantity > requirement.expected_qty:
+                raise CsvImportError(f"{label} überschreitet die Sollmenge für {key[0]} in Farbe {key[1]}.")
+            allocated[requirement.id] += quantity
+            pending.append((target, requirement, quantity))
+
+    session.execute(delete(SessionInventoryAllocation).where(SessionInventoryAllocation.session_id == residual.id))
+    for target, requirement, quantity in pending:
+        session.add(SessionInventoryAllocation(session_id=target.id, requirement_id=requirement.id, expected_qty=quantity))
+        target.inventory_allocation_enabled = True
+    for requirement, _, _ in requirements:
+        remaining = requirement.expected_qty - allocated[requirement.id]
+        if remaining > 0:
+            session.add(SessionInventoryAllocation(session_id=residual.id, requirement_id=requirement.id, expected_qty=remaining))
+    residual.inventory_allocation_enabled = True
+    return True, len(pending)
 
 
 def _rebuild_snapshot_sessions(

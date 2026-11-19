@@ -289,8 +289,12 @@ function App() {
       if (!importResponse.ok) throw new Error(imported.detail);
       let subsetMessage = "";
       if (subsetFiles.length > 0) {
-        const result = await uploadSubsetSnapshots(project.data.id);
-        subsetMessage = ` ${result.positions} Positionen wurden den Anleitungsbereichen zugeordnet.`;
+        const data = new FormData();
+        subsetFiles.forEach((snapshot) => data.append("files", snapshot));
+        const allocationResponse = await fetch(`/api/v1/projects/${project.data.id}/import/rebrickable-json`, { method: "POST", body: data });
+        const allocation = await allocationResponse.json();
+        if (!allocationResponse.ok) throw new Error(allocation.detail || "Die JSON-Snapshots konnten nicht zugeordnet werden.");
+        subsetMessage = ` ${allocation.data.requirements} Positionen wurden den Bereichen zugeordnet.`;
       }
       await loadCountingData(project.data.id);
       await loadOverview(project.data.id);
@@ -305,21 +309,6 @@ function App() {
     } catch (error) {
       setMessage(error instanceof Error && error.message ? error.message : "Der Rebrickable-Import ist fehlgeschlagen.");
     }
-  }
-
-  async function uploadSubsetSnapshots(activeProjectId: string) {
-    if (subsetFiles.length !== 4) {
-      throw new Error("Bitte wähle genau vier vollständige Rebrickable-JSON-Snapshots aus.");
-    }
-    const data = new FormData();
-    subsetFiles.forEach((snapshot) => data.append("files", snapshot));
-    const response = await fetch(`/api/v1/projects/${activeProjectId}/import/rebrickable-subsets`, {
-      method: "POST",
-      body: data,
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.detail || "Die Anleitungssnapshots konnten nicht zugeordnet werden.");
-    return result.data as { positions: number };
   }
 
   async function createEmptyProject() {

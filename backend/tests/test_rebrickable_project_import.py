@@ -1,18 +1,22 @@
+import json
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.db.models import (
     CountingSession,
     InventoryProvenance,
     InventoryRequirement,
+    InventorySnapshot,
     MinifigRequirement,
     Project,
+    SessionInventoryAllocation,
 )
 from app.db.session import create_session_factory
 from app.services.inventory_import import create_project
 from app.services.rebrickable_project_import import RebrickableProjectImporter
+from app.services.rebrickable_subset_import import import_rebrickable_json_inventory
 from app.services.inventory_import import CsvImportError
 from app.main import app
 
@@ -72,6 +76,21 @@ class InstructionRebrickableClient:
             return parts[next(key for key in parts if key in path)]
         except StopIteration as error:
             raise AssertionError(path) from error
+
+
+def _snapshot(inventory_id: int, part_num: str, color_id: int, color_name: str, quantity: int) -> bytes:
+    return json.dumps(
+        {
+            "status": "success",
+            "msg": "",
+            "html": f'''<a href="/inventory/{inventory_id}/parts/?format=rbpartscsv">Export</a>
+            <p>There are <b>1</b> parts in this inventory, with <b>{quantity}</b> total quantity.</p>
+            <div class="js-part"><a href="/parts/{part_num}/example/"><div class="js-part-data"
+            data-part_name="Testteil" data-color_id="{color_id}" data-color_name="{color_name}"
+            data-color_hsv="#000000 112233" data-quantity="{quantity}" data-is_spare="0">
+            <img data-src="https://cdn.rebrickable.com/media/thumbs/parts/test.png"></div></a></div>''',
+        }
+    ).encode()
 
 
 def test_rebrickable_import_aggregates_minifig_parts_with_provenance() -> None:
@@ -134,3 +153,31 @@ def test_75978_import_uses_parent_inventory_without_nonexistent_submodel_parts()
         f"/api/v1/projects/{project_id}/inventory?session_id={sessions[0]['id']}"
     ).json()["data"]["items"]
     assert sorted(item["part_num"] for item in first_inventory) == ["3001", "3002"]
+
+
+def test_parent_rebrickable_inventory_keeps_residual_parts_when_snapshot_is_allocated() -> None:
+    factory = create_session_factory()
+    with factory.begin() as session:
+        project = create_project(session, f"parent-{uuid4()}", "Gesamtset")
+        project_id = project.id
+
+    with factory.begin() as session:
+        project = session.get(Project, project_id)
+        assert project is not None
+        RebrickableProjectImporter(FakeRebrickableClient()).import_project(session, project)
+        import_rebrickable_json_inventory(session, project, [("haus-eins.json", _snapshot(123456, "3001", 5, "Red", 2))])
+
+    with factory() as session:
+        project = session.get(Project, project_id)
+        assert project is not None
+        snapshot = session.get(InventorySnapshot, project.inventory_snapshot_id)
+        assert snapshot is not None and snapshot.provider == "rebrickable"
+        sessions = session.scalars(select(CountingSession).where(CountingSession.project_id == project_id).order_by(CountingSession.position)).all()
+        assert [item.label for item in sessions] == ["Restliche Setbestandteile", "haus-eins"]
+        totals = {
+            item.label: session.scalar(
+                select(func.coalesce(func.sum(SessionInventoryAllocation.expected_qty), 0)).where(SessionInventoryAllocation.session_id == item.id)
+            )
+            for item in sessions
+        }
+        assert totals == {"Restliche Setbestandteile": 9, "haus-eins": 2}
