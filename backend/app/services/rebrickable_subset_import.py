@@ -182,7 +182,7 @@ def import_rebrickable_subset_snapshots(
         first = sessions.pop("Unsortiert")
         first.label = "Anleitung 1"
         sessions[first.label] = first
-        for position, label in enumerate(["Anleitung 2", "Anleitung 3", "Anleitung 4", "Figuren"], start=1):
+        for position, label in enumerate(["Anleitung 2", "Anleitung 3", "Anleitung 4", "Restliche Setbestandteile", "Ersatzteile"], start=1):
             created = CountingSession(project_id=project.id, label=label, position=position, mandatory=True)
             session.add(created)
             sessions[label] = created
@@ -240,19 +240,23 @@ def import_rebrickable_subset_snapshots(
     for label in expected_labels:
         sessions[label].inventory_allocation_enabled = True
 
-    figures = sessions.get("Figuren")
-    if figures is not None:
-        for requirement_id, expected_quantity in expected_by_requirement.items():
-            remaining_quantity = expected_quantity - allocated_by_requirement[requirement_id]
-            if remaining_quantity > 0:
-                session.add(
-                    SessionInventoryAllocation(
-                        session_id=figures.id,
-                        requirement_id=requirement_id,
-                        expected_qty=remaining_quantity,
-                    )
+    residual = sessions.get("Restliche Setbestandteile")
+    spares = sessions.get("Ersatzteile")
+    for requirement, _, _ in requirements:
+        remaining_quantity = expected_by_requirement[requirement.id] - allocated_by_requirement[requirement.id]
+        target = spares if requirement.inventory_class == InventoryClass.SPARE else residual
+        if target is not None and remaining_quantity > 0:
+            session.add(
+                SessionInventoryAllocation(
+                    session_id=target.id,
+                    requirement_id=requirement.id,
+                    expected_qty=remaining_quantity,
                 )
-        figures.inventory_allocation_enabled = True
+            )
+    if residual is not None:
+        residual.inventory_allocation_enabled = True
+    if spares is not None:
+        spares.inventory_allocation_enabled = True
 
     return SubsetImportResult(
         sessions=len(expected_labels), positions=snapshot_positions, quantity=snapshot_quantity
@@ -416,12 +420,22 @@ def _allocate_parent_inventory_snapshots(
         sessions.append(residual)
     else:
         residual.label = "Restliche Setbestandteile"
+    spares = by_label.get("Ersatzteile")
+    if spares is None and any(requirement.inventory_class == InventoryClass.SPARE for requirement, _, _ in requirements):
+        spares = CountingSession(project_id=project.id, label="Ersatzteile", position=max((item.position for item in sessions), default=0) + 1, mandatory=False)
+        session.add(spares)
+        session.flush()
+        sessions.append(spares)
 
     allocated: Counter[object] = Counter()
     for requirement_id, quantity in session.execute(
         select(SessionInventoryAllocation.requirement_id, SessionInventoryAllocation.expected_qty)
         .join(CountingSession, SessionInventoryAllocation.session_id == CountingSession.id)
-        .where(CountingSession.project_id == project.id, CountingSession.id != residual.id)
+        .where(
+            CountingSession.project_id == project.id,
+            CountingSession.id != residual.id,
+            CountingSession.id != (spares.id if spares is not None else residual.id),
+        )
     ).all():
         allocated[requirement_id] += quantity
 
@@ -445,14 +459,19 @@ def _allocate_parent_inventory_snapshots(
             pending.append((target, requirement, quantity))
 
     session.execute(delete(SessionInventoryAllocation).where(SessionInventoryAllocation.session_id == residual.id))
+    if spares is not None:
+        session.execute(delete(SessionInventoryAllocation).where(SessionInventoryAllocation.session_id == spares.id))
     for target, requirement, quantity in pending:
         session.add(SessionInventoryAllocation(session_id=target.id, requirement_id=requirement.id, expected_qty=quantity))
         target.inventory_allocation_enabled = True
     for requirement, _, _ in requirements:
         remaining = requirement.expected_qty - allocated[requirement.id]
-        if remaining > 0:
-            session.add(SessionInventoryAllocation(session_id=residual.id, requirement_id=requirement.id, expected_qty=remaining))
+        target = spares if requirement.inventory_class == InventoryClass.SPARE else residual
+        if target is not None and remaining > 0:
+            session.add(SessionInventoryAllocation(session_id=target.id, requirement_id=requirement.id, expected_qty=remaining))
     residual.inventory_allocation_enabled = True
+    if spares is not None:
+        spares.inventory_allocation_enabled = True
     return True, len(pending)
 
 

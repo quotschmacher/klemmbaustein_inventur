@@ -65,16 +65,16 @@ def test_rebrickable_subset_snapshots_allocate_the_four_instruction_sessions() -
 
     sessions = client.get(f"/api/v1/projects/{project_id}/sessions").json()["data"]
     assert [session["label"] for session in sessions] == [
-        "Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Figuren"
+        "Anleitung 1", "Anleitung 2", "Anleitung 3", "Anleitung 4", "Restliche Setbestandteile", "Ersatzteile"
     ]
     first_inventory = client.get(
         f"/api/v1/projects/{project_id}/inventory?session_id={sessions[0]['id']}"
     ).json()["data"]["items"]
     assert [(item["part_num"], item["expected_qty"]) for item in first_inventory] == [("3001", 2)]
-    figures_inventory = client.get(
+    residual_inventory = client.get(
         f"/api/v1/projects/{project_id}/inventory?session_id={sessions[4]['id']}"
     ).json()["data"]["items"]
-    assert figures_inventory == []
+    assert residual_inventory == []
 
 
 def test_empty_project_can_use_a_json_snapshot_as_its_inventory() -> None:
