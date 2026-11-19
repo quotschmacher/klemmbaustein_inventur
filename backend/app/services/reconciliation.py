@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import defaultdict
+
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -85,6 +87,16 @@ def project_reconciliation(db: Session, project_id) -> tuple[dict[str, object], 
 def difference_items(db: Session, project_id, difference_type: str) -> tuple[bool, list[dict[str, object]]]:
     summary, items = project_reconciliation(db, project_id)
     all_complete = bool(summary["all_required_complete"])
+    quantities_by_requirement: dict[str, list[dict[str, object]]] = defaultdict(list)
+    for requirement_id, session_label, quantity in db.execute(
+        select(CountBalance.requirement_id, CountingSession.label, CountBalance.quantity)
+        .join(CountingSession, CountBalance.session_id == CountingSession.id)
+        .where(CountingSession.project_id == project_id, CountBalance.quantity > 0)
+        .order_by(CountingSession.position)
+    ).all():
+        quantities_by_requirement[str(requirement_id)].append({"label": session_label, "quantity": int(quantity)})
+    for item in items:
+        item["session_breakdown"] = quantities_by_requirement[str(item["id"])]
     if difference_type == "missing":
         return all_complete, [item for item in items if item["missing_quantity"] > 0] if all_complete else []
     if difference_type == "surplus":

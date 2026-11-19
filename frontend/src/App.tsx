@@ -63,7 +63,7 @@ function App() {
   const [addQuantities, setAddQuantities] = useState<Record<string, number>>({});
   const [view, setView] = useState<"overview" | "count" | "orders" | "exports" | "unlisted">("overview");
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
-  const [surplusItems, setSurplusItems] = useState<Array<{ id: string; part_num: string; part_name: string; color_name: string; surplus_quantity: number }>>([]);
+  const [surplusItems, setSurplusItems] = useState<Array<{ id: string; part_num: string; part_name: string; color_name: string; surplus_quantity: number; session_breakdown: Array<{ label: string; quantity: number }> }>>([]);
   const [missingItems, setMissingItems] = useState<DifferenceItem[]>([]);
   const [missingFinal, setMissingFinal] = useState(false);
   const [replacements, setReplacements] = useState<ReplacementItem[]>([]);
@@ -585,7 +585,7 @@ function App() {
               </div>
               <h3>Bereiche</h3>
               <div className="bereichskarten">{sessions.map((session) => <article key={session.id}><h4>{session.label}</h4><p>{session.status === "completed" ? "Abgeschlossen" : "In Bearbeitung"} · {session.counted_positions} Positionen erfasst</p><button type="button" onClick={() => renameSession(session)}>Umbenennen</button><button type="button" onClick={() => { setView("count"); selectSession(session.id); }}>Fortsetzen</button>{session.status === "completed" ? <button type="button" onClick={() => setSessionStatus(session, "in_progress")}>Wieder öffnen</button> : <button type="button" onClick={() => setSessionStatus(session, "completed")}>Abschließen</button>}</article>)}</div>
-              {surplusItems.length > 0 && <section className="differenzen"><h3>Aktueller globaler Überschuss</h3><ul>{surplusItems.map((item) => <li key={item.id}>{item.part_num} – {item.part_name}, {item.color_name}: +{item.surplus_quantity}</li>)}</ul></section>}
+              {surplusItems.length > 0 && <section className="differenzen"><h3>Aktueller globaler Überschuss</h3><ul>{surplusItems.map((item) => <li key={item.id}>{item.part_num} – {item.part_name}, {item.color_name}: +{item.surplus_quantity}<span className="bereichsaufschluesselung">Gezählt in: {item.session_breakdown.map((session) => `${session.label} (${session.quantity})`).join(", ") || "keinem Bereich"}</span></li>)}</ul></section>}
             </section>}
             {view === "orders" && <section className="bestellungen" aria-label="Fehlteile und Bestellungen">
               <h2>Fehlteile & Bestellungen</h2>
