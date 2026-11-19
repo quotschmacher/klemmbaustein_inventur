@@ -525,10 +525,12 @@ function App() {
 
   const colors = Array.from(new Map(items.map((item) => [item.color_id, { name: item.color_name, rgb: item.color_rgb }])).entries());
   const selectedColor = selectedColorId === null ? null : colors.find(([id]) => id === selectedColorId)?.[1];
-  const visibleItems = items.filter((item) => (
-    (selectedColorId === null || item.color_id === selectedColorId)
-    && `${item.part_num} ${item.part_name}`.toLowerCase().includes(search.toLowerCase())
-  ));
+  const visibleItems = items
+    .filter((item) => (
+      (selectedColorId === null || item.color_id === selectedColorId)
+      && `${item.part_num} ${item.part_name}`.toLowerCase().includes(search.toLowerCase())
+    ))
+    .sort((left, right) => Number(left.session_quantity >= left.expected_qty) - Number(right.session_quantity >= right.expected_qty));
 
   return (
     <main className="startseite">
