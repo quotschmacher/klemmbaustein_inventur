@@ -54,6 +54,7 @@ function App() {
   const [file, setFile] = useState<File | null>(null);
   const [subsetFiles, setSubsetFiles] = useState<File[]>([]);
   const [items, setItems] = useState<InventoryItem[]>([]);
+  const [aggregateItems, setAggregateItems] = useState<InventoryItem[]>([]);
   const [sessions, setSessions] = useState<CountingSession[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -61,7 +62,7 @@ function App() {
   const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [addQuantities, setAddQuantities] = useState<Record<string, number>>({});
-  const [view, setView] = useState<"overview" | "count" | "orders" | "exports" | "unlisted">("overview");
+  const [view, setView] = useState<"overview" | "aggregate" | "count" | "orders" | "exports" | "unlisted">("overview");
   const [summary, setSummary] = useState<ProjectSummary | null>(null);
   const [surplusItems, setSurplusItems] = useState<Array<{ id: string; part_num: string; part_name: string; color_name: string; surplus_quantity: number; session_breakdown: Array<{ label: string; quantity: number }> }>>([]);
   const [missingItems, setMissingItems] = useState<DifferenceItem[]>([]);
@@ -104,15 +105,18 @@ function App() {
   useEffect(() => { void loadProjects(showArchivedProjects).catch(() => undefined); }, [showArchivedProjects]);
 
   async function loadOverview(nextProjectId: string) {
-    const [summaryResponse, surplusResponse] = await Promise.all([
+    const [summaryResponse, surplusResponse, inventoryResponse] = await Promise.all([
       fetch(`/api/v1/projects/${nextProjectId}/summary`),
       fetch(`/api/v1/projects/${nextProjectId}/differences?type=surplus`),
+      fetch(`/api/v1/projects/${nextProjectId}/inventory`),
     ]);
     const summaryData = await summaryResponse.json();
     const surplusData = await surplusResponse.json();
-    if (!summaryResponse.ok || !surplusResponse.ok) throw new Error();
+    const inventoryData = await inventoryResponse.json();
+    if (!summaryResponse.ok || !surplusResponse.ok || !inventoryResponse.ok) throw new Error();
     setSummary(summaryData.data);
     setSurplusItems(surplusData.data.items);
+    setAggregateItems(inventoryData.data.items);
   }
 
   async function loadOrders(nextProjectId: string) {
@@ -564,6 +568,7 @@ function App() {
           <section className="arbeitsbereich" aria-label="Projektansicht">
             <nav className="projektnavigation" aria-label="Projektseiten">
               <button type="button" aria-current={view === "overview" ? "page" : undefined} onClick={() => setView("overview")}>Übersicht</button>
+              <button type="button" aria-current={view === "aggregate" ? "page" : undefined} onClick={() => setView("aggregate")}>Gesamtinventar</button>
               <button type="button" aria-current={view === "count" ? "page" : undefined} onClick={() => setView("count")}>Zählen</button>
               <button type="button" aria-current={view === "orders" ? "page" : undefined} onClick={() => setView("orders")}>Fehlteile & Bestellungen</button>
               <button type="button" aria-current={view === "exports" ? "page" : undefined} onClick={() => setView("exports")}>Export & Backup</button>
@@ -586,6 +591,11 @@ function App() {
               <h3>Bereiche</h3>
               <div className="bereichskarten">{sessions.map((session) => <article key={session.id}><h4>{session.label}</h4><p>{session.status === "completed" ? "Abgeschlossen" : "In Bearbeitung"} · {session.counted_positions} Positionen erfasst</p><button type="button" onClick={() => renameSession(session)}>Umbenennen</button><button type="button" onClick={() => { setView("count"); selectSession(session.id); }}>Fortsetzen</button>{session.status === "completed" ? <button type="button" onClick={() => setSessionStatus(session, "in_progress")}>Wieder öffnen</button> : <button type="button" onClick={() => setSessionStatus(session, "completed")}>Abschließen</button>}</article>)}</div>
               {surplusItems.length > 0 && <section className="differenzen"><h3>Aktueller globaler Überschuss</h3><ul>{surplusItems.map((item) => <li key={item.id}>{item.part_num} – {item.part_name}, {item.color_name}: +{item.surplus_quantity}<span className="bereichsaufschluesselung">Gezählt in: {item.session_breakdown.map((session) => `${session.label} (${session.quantity})`).join(", ") || "keinem Bereich"}</span></li>)}</ul></section>}
+            </section>}
+            {view === "aggregate" && <section className="zaehlbereich" aria-label="Gesamtinventar">
+              <h2>Gesamtinventar</h2>
+              <p className="hinweis">Alle importierten JSON-Snapshots und ihre Zählstände sind hier je Teil und Farbe zusammengefasst.</p>
+              <div className="tabellenrahmen"><table><thead><tr><th>Teil</th><th>Farbe</th><th>Soll gesamt</th><th>Gezählt gesamt</th><th>Abweichung</th></tr></thead><tbody>{aggregateItems.map((item) => { const delta = item.global_quantity - item.expected_qty; return <tr key={item.id}><td className="teil"><span className="teilinhalt"><span className="teilbild">{item.image_url && <img src={item.image_url} alt="" loading="lazy" />}</span><span>{item.part_num} – {item.part_name}</span></span></td><td>{item.color_name}</td><td>{item.expected_qty}</td><td>{item.global_quantity}</td><td>{delta > 0 ? `Überschuss +${delta}` : delta < 0 ? `Noch offen ${-delta}` : "Ausgeglichen"}</td></tr>; })}</tbody></table></div>
             </section>}
             {view === "orders" && <section className="bestellungen" aria-label="Fehlteile und Bestellungen">
               <h2>Fehlteile & Bestellungen</h2>
