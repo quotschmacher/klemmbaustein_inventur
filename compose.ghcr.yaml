@@ -8,8 +8,8 @@ services:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-lego_inventory}
-      POSTGRES_USER: ${POSTGRES_USER:-lego}
+      POSTGRES_DB: ${POSTGRES_DB:-klemmbaustein_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-klemmbaustein}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
@@ -18,49 +18,41 @@ services:
       interval: 5s
       timeout: 3s
       retries: 15
-    networks: [internal]
 
   migrate:
     image: ghcr.io/quotschmacher/klemmbaustein_inventur-api:${IMAGE_TAG:-latest}
     command: ["alembic", "upgrade", "head"]
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-klemmbaustein}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-klemmbaustein_inventory}
     depends_on:
       db:
         condition: service_healthy
-    networks: [internal]
 
   api:
     image: ghcr.io/quotschmacher/klemmbaustein_inventur-api:${IMAGE_TAG:-latest}
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-klemmbaustein}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-klemmbaustein_inventory}
       REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY:-}
     depends_on:
       migrate:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health')"]
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://localhost:8000/health')"]
       interval: 10s
       timeout: 3s
       retries: 5
-    networks: [internal]
 
   web:
     image: ghcr.io/quotschmacher/klemmbaustein_inventur-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
+      - "8080:8080"
     depends_on:
       api:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/"]
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/"]
       interval: 10s
       timeout: 3s
       retries: 5
-    networks: [internal]
-
-networks:
-  internal:
-    internal: false
