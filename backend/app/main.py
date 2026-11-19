@@ -259,7 +259,7 @@ async def import_rebrickable_json_route(
             if project is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Projekt nicht gefunden.")
             imported, requirements = import_rebrickable_json_inventory(
-                session, project, [await file.read() for file in files]
+                session, project, [(file.filename or "Snapshot.json", await file.read()) for file in files]
             )
     except CsvImportError as error:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error

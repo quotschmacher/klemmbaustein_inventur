@@ -107,14 +107,14 @@ def test_empty_project_can_append_a_second_json_snapshot_before_counting() -> No
     ]:
         response = client.post(
             f"/api/v1/projects/{project['id']}/import/rebrickable-json",
-            files={"files": ("inventar.json", _snapshot(inventory_id, part_num, color_id, color_name, quantity), "application/json")},
+            files={"files": (f"s{inventory_id - 123455}.json", _snapshot(inventory_id, part_num, color_id, color_name, quantity), "application/json")},
         )
         assert response.status_code == 201
 
     inventory = client.get(f"/api/v1/projects/{project['id']}/inventory").json()["data"]["items"]
     assert [(item["part_num"], item["expected_qty"]) for item in inventory] == [("3002", 3), ("3001", 7)]
     sessions = client.get(f"/api/v1/projects/{project['id']}/sessions").json()["data"]
-    assert [item["label"] for item in sessions] == ["Snapshot 123456", "Snapshot 123457"]
+    assert [item["label"] for item in sessions] == ["s1", "s2"]
     first = client.get(f"/api/v1/projects/{project['id']}/inventory?session_id={sessions[0]['id']}").json()["data"]["items"]
     second = client.get(f"/api/v1/projects/{project['id']}/inventory?session_id={sessions[1]['id']}").json()["data"]["items"]
     assert [(item["part_num"], item["expected_qty"]) for item in first] == [("3001", 7)]

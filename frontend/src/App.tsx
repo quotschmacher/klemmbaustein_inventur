@@ -349,7 +349,13 @@ function App() {
       const data = new FormData();
       subsetFiles.forEach((snapshot) => data.append("files", snapshot));
       let response = await fetch(`/api/v1/projects/${projectId}/import/rebrickable-json`, { method: "POST", body: data });
-      const result = await response.json();
+      const importText = await response.text();
+      let result: { data?: { requirements: number }; detail?: string };
+      try {
+        result = JSON.parse(importText);
+      } catch {
+        throw new Error(`Der Server hat den Upload abgelehnt (${response.status}). Bitte wähle weniger oder kleinere Dateien.`);
+      }
       if (!response.ok && subsetFiles.length === 4) {
         response = await fetch(`/api/v1/projects/${projectId}/import/rebrickable-subsets`, { method: "POST", body: data });
         const allocation = await response.json();
@@ -359,7 +365,7 @@ function App() {
         setMessage(`${allocation.data.positions} Positionen wurden den Bereichen zugeordnet.`);
         return;
       }
-      if (!response.ok) throw new Error(result.detail);
+      if (!response.ok || !result.data) throw new Error(result.detail || "Die JSON-Snapshots konnten nicht importiert werden.");
       await loadCountingData(projectId);
       await loadOverview(projectId);
       await loadOrders(projectId);

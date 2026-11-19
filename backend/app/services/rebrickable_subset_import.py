@@ -6,6 +6,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, replace
 from html.parser import HTMLParser
+from pathlib import Path
 from typing import Iterable
 
 from sqlalchemy import delete, select
@@ -258,11 +259,12 @@ def import_rebrickable_subset_snapshots(
 
 
 def import_rebrickable_json_inventory(
-    session: Session, project: Project, snapshots: Iterable[bytes]
+    session: Session, project: Project, snapshots: Iterable[tuple[str, bytes]]
 ) -> tuple[bool, int]:
-    contents = list(snapshots)
-    if not contents:
-        raise CsvImportError("Bitte lade mindestens einen Rebrickable-JSON-Snapshot hoch.")
+    uploads = list(snapshots)
+    if not uploads:
+        raise CsvImportError("Wähle mindestens einen Rebrickable-JSON-Snapshot aus.")
+    contents = [content for _, content in uploads]
     existing_rows: list[CsvRow] = []
     prior_checksum = ""
     if project.inventory_snapshot_id is not None:
@@ -307,7 +309,12 @@ def import_rebrickable_json_inventory(
             ).all()
         ]
         prior_checksum = str(project.inventory_snapshot_id)
-    parsed_snapshots = [parse_rebrickable_subset_snapshot(content) for content in contents]
+    parsed_uploads = [(filename, parse_rebrickable_subset_snapshot(content)) for filename, content in uploads]
+    parsed_snapshots = [snapshot for _, snapshot in parsed_uploads]
+    session_labels = {
+        snapshot.inventory_id: Path(filename).stem or f"Snapshot {snapshot.inventory_id}"
+        for filename, snapshot in parsed_uploads
+    }
     quantities: Counter[tuple[str, int, InventoryClass]] = Counter()
     provenance: dict[tuple[str, int, InventoryClass], list[tuple[str, str, int]]] = {}
     metadata: dict[tuple[str, int, InventoryClass], SnapshotPosition] = {}
@@ -360,12 +367,12 @@ def import_rebrickable_json_inventory(
         checksum=checksum,
         rows=rows,
     )
-    _rebuild_snapshot_sessions(session, project, parsed_snapshots)
+    _rebuild_snapshot_sessions(session, project, parsed_snapshots, session_labels)
     return imported, requirement_count
 
 
 def _rebuild_snapshot_sessions(
-    session: Session, project: Project, imported_snapshots: list[ParsedSnapshot]
+    session: Session, project: Project, imported_snapshots: list[ParsedSnapshot], session_labels: dict[str, str]
 ) -> None:
     if project.inventory_snapshot_id is None:
         return
@@ -402,11 +409,24 @@ def _rebuild_snapshot_sessions(
     sessions = session.scalars(
         select(CountingSession).where(CountingSession.project_id == project.id).order_by(CountingSession.position)
     ).all()
+    source_labels = {
+        source_ref: label
+        for source_ref, label in session.execute(
+            select(InventoryProvenance.source_ref, CountingSession.label)
+            .join(SessionInventoryAllocation, SessionInventoryAllocation.requirement_id == InventoryProvenance.requirement_id)
+            .join(CountingSession, CountingSession.id == SessionInventoryAllocation.session_id)
+            .where(
+                CountingSession.project_id == project.id,
+                InventoryProvenance.source_type == "rebrickable_snapshot",
+            )
+        ).all()
+    }
+    source_labels.update(session_labels)
     by_label = {item.label: item for item in sessions}
     default = next((item for item in sessions if item.label == "Unsortiert"), None)
     targets: dict[str, CountingSession] = {}
     for index, source_ref in enumerate(source_refs):
-        label = f"Snapshot {source_ref}"
+        label = source_labels.get(source_ref, f"Snapshot {source_ref}")
         target = by_label.get(label)
         if target is None and default is not None:
             target = default
