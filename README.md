@@ -53,7 +53,7 @@ docker compose -f compose.ghcr.yaml pull
 docker compose -f compose.ghcr.yaml up -d
 ```
 
-`compose.ghcr.yaml` verwendet ausschließlich veröffentlichte Images. Der Dienst `migrate` nutzt dasselbe API-Image und führt die Migrationen vor API und Web aus.
+`compose.ghcr.yaml` verwendet ausschließlich veröffentlichte Images. Der Dienst `migrate` nutzt dasselbe API-Image und führt die Migrationen vor API und Web aus. Persistente PostgreSQL-Daten liegen dabei nachvollziehbar relativ zum Compose-Verzeichnis unter `./data/postgres/`.
 
 ## Datenexport und Projekt-Restore
 
