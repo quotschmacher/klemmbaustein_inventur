@@ -1,7 +1,7 @@
 # Betrieb mit den via GitHub Actions veröffentlichten GHCR-Images.
 # Einmalig: .env.example nach .env kopieren und POSTGRES_PASSWORD setzen.
 # Optional: IMAGE_TAG auf einen geprüften Kurz-Commit wie 14f494d setzen.
-name: lego-inventur
+name: klemmbaustein-inventur
 
 services:
   db:
