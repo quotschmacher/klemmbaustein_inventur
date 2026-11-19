@@ -313,6 +313,23 @@ td:last-child input {
   box-shadow: 0 0.75rem 2rem rgb(31 41 55 / 30%);
 }
 
+.zaehlsteuerung {
+  display: flex;
+  align-items: end;
+  gap: 0.35rem;
+}
+
+.zaehlsteuerung label {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.zaehlsteuerung input {
+  width: 4.25rem;
+}
+
 @media (max-width: 760px) {
   .startseite { padding: 1rem; place-items: start; }
   .startseite > section { padding: 1.25rem; }
