@@ -5,5 +5,5 @@ set -u
 repo_root="$(git rev-parse --show-toplevel)" || exit 0
 cd "$repo_root" || exit 0
 
-printf '%s\n' '[post-commit] Aktualisiere LEGO Inventur über Docker Compose …'
+printf '%s\n' '[post-commit] Aktualisiere Klemmbaustein Inventur über Docker Compose …'
 docker compose up -d --build --force-recreate migrate api web || printf '%s\n' '[post-commit] Docker-Update fehlgeschlagen; siehe obige Ausgabe.' >&2

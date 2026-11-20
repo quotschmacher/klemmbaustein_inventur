@@ -2,7 +2,7 @@
 
 ## Nutzerproblem
 
-Ein großes LEGO-Set ist noch aufgebaut und soll **hausweise zerlegt, nachgezählt, verpackt und verkauft** werden. Handelsübliche Inventarlisten liefern nur eine Sollmenge pro gesamtem Set. Es existieren **keine verlässlichen Sollmengen pro Bauanleitung**. BrickTally erlaubt im beobachteten Fall nur eine Erfassung; benötigt werden fünf getrennte Erfassungen und später eine Summierung.
+Ein großes Klemmbaustein-Set ist noch aufgebaut und soll **hausweise zerlegt, nachgezählt, verpackt und verkauft** werden. Handelsübliche Inventarlisten liefern nur eine Sollmenge pro gesamtem Set. Es existieren **keine verlässlichen Sollmengen pro Bauanleitung**. BrickTally erlaubt im beobachteten Fall nur eine Erfassung; benötigt werden fünf getrennte Erfassungen und später eine Summierung.
 
 ## Kernlösung
 

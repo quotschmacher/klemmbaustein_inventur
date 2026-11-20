@@ -20,7 +20,7 @@ from app.db.models import (
     CountBalance,
     CountingSession,
     InventoryRequirement,
-    LegoSet,
+    KlemmbausteinSet,
     PartCatalog,
     Project,
     SessionInventoryAllocation,
@@ -59,7 +59,7 @@ from app.services.unlisted_finds import (
     unlisted_find_data,
 )
 
-app = FastAPI(title="LEGO Inventur API", version="0.1.0")
+app = FastAPI(title="Klemmbaustein Inventur API", version="0.1.0")
 
 
 class ProjectCreateRequest(BaseModel):
@@ -166,13 +166,13 @@ def create_project_route(payload: ProjectCreateRequest) -> dict[str, dict[str, s
 def list_projects_route(include_archived: bool = False) -> dict[str, list[dict[str, object]]]:
     factory = create_session_factory()
     with factory() as db:
-        statement = select(Project, LegoSet).join(LegoSet, Project.set_id == LegoSet.id)
+        statement = select(Project, KlemmbausteinSet).join(KlemmbausteinSet, Project.set_id == KlemmbausteinSet.id)
         if not include_archived:
             statement = statement.where(Project.archived_at.is_(None))
         rows = db.execute(statement.order_by(Project.updated_at.desc())).all()
     return {"data": [
-        {"id": str(project.id), "label": project.label, "set_num": lego_set.provider_set_id, "status": project.status.value, "archived": project.archived_at is not None}
-        for project, lego_set in rows
+        {"id": str(project.id), "label": project.label, "set_num": klemmbaustein_set.provider_set_id, "status": project.status.value, "archived": project.archived_at is not None}
+        for project, klemmbaustein_set in rows
     ]}
 
 

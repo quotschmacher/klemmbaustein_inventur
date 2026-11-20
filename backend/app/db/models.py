@@ -67,7 +67,7 @@ def value_enum(enum_class: type[StrEnum]) -> Enum:
     )
 
 
-class LegoSet(Base):
+class KlemmbausteinSet(Base):
     __tablename__ = "sets"
     __table_args__ = (UniqueConstraint("provider", "provider_set_id", name="uq_sets_provider_set"),)
 

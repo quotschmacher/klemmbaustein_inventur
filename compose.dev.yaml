@@ -1,11 +1,11 @@
-name: lego-inventur-dev
+name: klemmbaustein-inventur-dev
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-lego_inventory}
-      POSTGRES_USER: ${POSTGRES_USER:-lego}
+      POSTGRES_DB: ${POSTGRES_DB:-klemmbaustein_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-klemmbaustein}
       POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-dev_only_change_me}
     volumes:
       - pgdata_dev:/var/lib/postgresql/data
@@ -24,7 +24,7 @@ services:
       - .:/workspace:cached
     working_dir: /workspace
     environment:
-      DATABASE_URL: postgresql+psycopg://lego:${DEV_POSTGRES_PASSWORD:-dev_only_change_me}@db:5432/${POSTGRES_DB:-lego_inventory}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-klemmbaustein}:${DEV_POSTGRES_PASSWORD:-dev_only_change_me}@db:5432/${POSTGRES_DB:-klemmbaustein_inventory}
       REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY:-}
       PYTHONUNBUFFERED: "1"
     depends_on:
@@ -35,3 +35,4 @@ services:
       - "127.0.0.1:5173:5173"
 volumes:
   pgdata_dev:
+    name: klemmbaustein-inventur-dev_pgdata_dev

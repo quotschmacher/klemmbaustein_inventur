@@ -1,1 +1,1 @@
-"""LEGO-Inventur API."""
+"""Klemmbaustein-Inventur API."""

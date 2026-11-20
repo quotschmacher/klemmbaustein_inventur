@@ -20,7 +20,7 @@ from app.db.models import (
     InventoryRequirement,
     InventoryProvenance,
     InventorySnapshot,
-    LegoSet,
+    KlemmbausteinSet,
     PartCatalog,
     Project,
     SessionInventoryAllocation,
@@ -160,8 +160,8 @@ def parse_rebrickable_subset_snapshot(content: bytes) -> ParsedSnapshot:
 def import_rebrickable_subset_snapshots(
     session: Session, project: Project, snapshots: Iterable[bytes]
 ) -> SubsetImportResult:
-    lego_set = session.get(LegoSet, project.set_id)
-    if lego_set is None or canonical_set_num(lego_set.provider_set_id) != "75978-1":
+    klemmbaustein_set = session.get(KlemmbausteinSet, project.set_id)
+    if klemmbaustein_set is None or canonical_set_num(klemmbaustein_set.provider_set_id) != "75978-1":
         raise CsvImportError("Anleitungssnapshots werden derzeit nur für das Set 75978-1 unterstützt.")
     if project.inventory_snapshot_id is None:
         raise CsvImportError("Importiere zuerst die globale Stückliste des Sets.")

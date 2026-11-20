@@ -6,7 +6,7 @@
 - `source_kind` dokumentiert Herkunft der Sollposition (`set_regular`, `minifig_component`, `spare`). Für Pflicht-Vollständigkeit werden `set_regular` und `minifig_component` zu **einer** `required` Sollmenge je Teil/Farbe **addiert**; `spare` bleibt eine gesonderte Sollkategorie.
 - Für dieselbe Teilenummer/Farbe: `required_total = set_regular_qty + Σ(minifig_qty × component_qty)`. **Nicht** nochmal zusätzlich `inc_minifig_parts=1` importieren, wenn separat expandiert wurde.
 - `is_spare=true` nie automatisch als normal erforderlich behandeln. Gesonderter Tab „Ersatzteile“ mit eigenem `spare_expected`; optional gefunden und geprüft.
-- Original-LEGO-Pieces-Zahl kann von expandierten Inventarpositionen abweichen (Figuren, Spares, Druckteile). Keine Gleichheit mit aufgedruckter Gesamtzahl erzwingen.
+- Die vom Hersteller angegebene Teilezahl kann von expandierten Inventarpositionen abweichen (Figuren, Spares, Druckteile). Keine Gleichheit mit aufgedruckter Gesamtzahl erzwingen.
 
 ## Zählung
 

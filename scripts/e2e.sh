@@ -4,7 +4,7 @@ set -euo pipefail
 # Runs Playwright against a new, isolated Compose project and leaves its volume intact.
 root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
-project_name="lego-inventur-e2e-$(date -u +%Y%m%d%H%M%S)"
+project_name="klemmbaustein-inventur-e2e-$(date -u +%Y%m%d%H%M%S)"
 compose=(docker compose -p "$project_name" -f compose.yaml -f compose.e2e.yaml)
 
 "${compose[@]}" up -d --build

@@ -3,9 +3,9 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lego-inventur-api"
+name = "klemmbaustein-inventur-api"
 version = "0.1.0"
-description = "API für die LEGO-Inventur"
+description = "API für die Klemmbaustein-Inventur"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "alembic>=1.13,<1.14",

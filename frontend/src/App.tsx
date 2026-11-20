@@ -540,7 +540,7 @@ function App() {
     <main className="startseite">
       <section aria-labelledby="seitentitel">
         <p className="kicker">Set-Inventur</p>
-        <h1 id="seitentitel">LEGO Inventur</h1>
+        <h1 id="seitentitel">Klemmbaustein Inventur</h1>
         <p>Lege ein Projekt an und importiere CSV- oder Rebrickable-JSON-Inventare.</p>
         <p><a href="/synthetic_inventory.csv" download>Synthetische Test-CSV herunterladen</a></p>
         {!projectId && projects.length > 0 && <section className="projektliste" aria-label="Gespeicherte Projekte"><h2>Gespeicherte Projekte</h2><label className="archivfilter"><input type="checkbox" checked={showArchivedProjects} onChange={(event) => setShowArchivedProjects(event.target.checked)} /> Archivierte anzeigen</label>{selectedProjectIds.length > 0 && <button type="button" onClick={archiveSelectedProjects}>{selectedProjectIds.length} ausgewählte archivieren</button>}{projects.map((project) => <article key={project.id}>{!project.archived && <input aria-label={`${project.label} auswählen`} type="checkbox" checked={selectedProjectIds.includes(project.id)} onChange={(event) => setSelectedProjectIds((ids) => event.target.checked ? [...ids, project.id] : ids.filter((id) => id !== project.id))} />}<span>{project.label} · {project.set_num}{project.archived ? " · archiviert" : ""}</span>{!project.archived && <button type="button" onClick={() => openProject(project.id)}>Fortsetzen</button>}<button type="button" onClick={() => setProjectArchived(project, !project.archived)}>{project.archived ? "Wiederherstellen" : "Archivieren"}</button></article>)}</section>}

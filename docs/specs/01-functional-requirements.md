@@ -2,7 +2,7 @@
 
 ## P0 – Muss
 
-**FR-001 Setimport:** LEGO-ID wie `75978-1` importieren (serverseitige Rebrickable API oder CSV); Quellenstand, Importzeit und Prüfergebnis speichern. Alle Paginationsseiten. Echte Teilebilder bzw. Bildlinks und Farben wenn verfügbar. Ohne zuverlässigen Import keine „vollständig“-Aussage.
+**FR-001 Setimport:** Klemmbaustein-ID wie `75978-1` importieren (serverseitige Rebrickable API oder CSV); Quellenstand, Importzeit und Prüfergebnis speichern. Alle Paginationsseiten. Echte Teilebilder bzw. Bildlinks und Farben wenn verfügbar. Ohne zuverlässigen Import keine „vollständig“-Aussage.
 
 **FR-002 Bereiche:** Beim neuen Projekt für 75978 die Bereiche `Anleitung 1`, `Anleitung 2`, `Anleitung 3`, `Anleitung 4`, `Minifiguren` anlegen. Umbenennen, sortieren, weitere anlegen; Archiv statt destruktives Löschen bereits befüllter Bereiche. Jeder Bereich `in_progress`/`completed`, abschließbar und wieder öffnend mit Auditlog. Pflichterfassungen konfigurierbar, standardmäßig alle fünf.
 

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 test("importiert ein synthetisches Inventar und zeigt die Zähloberfläche", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: "LEGO Inventur" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Klemmbaustein Inventur" })).toBeVisible();
 
   await page.getByLabel("CSV-Inventar").setInputFiles("public/synthetic_inventory.csv");
   await page.getByRole("button", { name: "Inventar importieren" }).click();

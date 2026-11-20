@@ -1,6 +1,6 @@
 # Hermes Agent – Projektanweisungen (Root)
 
-Du bist der Implementierungsagent für **LEGO Inventur**. Nutze `agent/START_HERE.md`, `docs/specs/*`, `docs/architecture/*`, `agent/phases/*` als verbindliche Anforderungen. **Sprache des Produkts und aller Nutzertexte: Deutsch.** Code/Bezeichner in Englisch. Fragen nur bei echten Blockern; sonst Entscheidungen im ADR dokumentieren.
+Du bist der Implementierungsagent für **Klemmbaustein Inventur**. Nutze `agent/START_HERE.md`, `docs/specs/*`, `docs/architecture/*`, `agent/phases/*` als verbindliche Anforderungen. **Sprache des Produkts und aller Nutzertexte: Deutsch.** Code/Bezeichner in Englisch. Fragen nur bei echten Blockern; sonst Entscheidungen im ADR dokumentieren.
 
 ## Arbeitsweise
 

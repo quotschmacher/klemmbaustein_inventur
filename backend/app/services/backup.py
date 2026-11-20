@@ -15,7 +15,7 @@ from app.db.models import (
     InventoryProvenance,
     InventoryRequirement,
     InventorySnapshot,
-    LegoSet,
+    KlemmbausteinSet,
     MinifigRequirement,
     PartCatalog,
     Project,
@@ -40,9 +40,9 @@ def project_backup(db: Session, project_id: UUID) -> dict[str, object]:
     project = db.get(Project, project_id)
     if project is None or project.inventory_snapshot_id is None:
         raise BackupValidationError("Inventar nicht gefunden.")
-    lego_set = db.get(LegoSet, project.set_id)
+    klemmbaustein_set = db.get(KlemmbausteinSet, project.set_id)
     snapshot = db.get(InventorySnapshot, project.inventory_snapshot_id)
-    if lego_set is None or snapshot is None:
+    if klemmbaustein_set is None or snapshot is None:
         raise BackupValidationError("Projektbackup ist unvollständig.")
 
     requirements = db.execute(
@@ -94,7 +94,7 @@ def project_backup(db: Session, project_id: UUID) -> dict[str, object]:
             "label": project.label,
             "status": project.status.value,
             "archived_at": _timestamp(project.archived_at),
-            "set": _set_data(lego_set),
+            "set": _set_data(klemmbaustein_set),
         },
         "inventory_snapshot": {
             "id": str(snapshot.id),
@@ -136,27 +136,27 @@ def restore_project_backup(db: Session, backup: object) -> tuple[Project, UUID]:
     source_project_id = _uuid(data["project"]["id"], "project.id")
     snapshot_data = data["inventory_snapshot"]
     set_data = data["project"]["set"]
-    lego_set = db.scalar(
-        select(LegoSet).where(
-            LegoSet.provider == set_data["provider"],
-            LegoSet.provider_set_id == set_data["provider_set_id"],
+    klemmbaustein_set = db.scalar(
+        select(KlemmbausteinSet).where(
+            KlemmbausteinSet.provider == set_data["provider"],
+            KlemmbausteinSet.provider_set_id == set_data["provider_set_id"],
         )
     )
-    if lego_set is None:
-        lego_set = LegoSet(
+    if klemmbaustein_set is None:
+        klemmbaustein_set = KlemmbausteinSet(
             provider=set_data["provider"],
             provider_set_id=set_data["provider_set_id"],
             name=set_data["name"],
             year=set_data.get("year"),
             image_url=set_data.get("image_url"),
         )
-        db.add(lego_set)
+        db.add(klemmbaustein_set)
         db.flush()
 
-    snapshot, requirement_map = _restore_or_reuse_snapshot(db, lego_set, snapshot_data)
+    snapshot, requirement_map = _restore_or_reuse_snapshot(db, klemmbaustein_set, snapshot_data)
     project_data = data["project"]
     project = Project(
-        set_id=lego_set.id,
+        set_id=klemmbaustein_set.id,
         inventory_snapshot_id=snapshot.id,
         label=f"{project_data['label']} (Wiederhergestellt)",
         status=ProjectStatus(project_data["status"]),
@@ -276,11 +276,11 @@ def restore_project_backup(db: Session, backup: object) -> tuple[Project, UUID]:
 
 
 def _restore_or_reuse_snapshot(
-    db: Session, lego_set: LegoSet, snapshot_data: dict[str, object]
+    db: Session, klemmbaustein_set: KlemmbausteinSet, snapshot_data: dict[str, object]
 ) -> tuple[InventorySnapshot, dict[str, UUID]]:
     snapshot = db.scalar(
         select(InventorySnapshot).where(
-            InventorySnapshot.set_id == lego_set.id,
+            InventorySnapshot.set_id == klemmbaustein_set.id,
             InventorySnapshot.provider == snapshot_data["provider"],
             InventorySnapshot.source_revision == snapshot_data["source_revision"],
         )
@@ -290,7 +290,7 @@ def _restore_or_reuse_snapshot(
             raise BackupValidationError("Snapshot-Prüfsumme stimmt nicht mit dem vorhandenen Inventar überein.")
     else:
         snapshot = InventorySnapshot(
-            set_id=lego_set.id,
+            set_id=klemmbaustein_set.id,
             provider=snapshot_data["provider"],
             source_revision=snapshot_data["source_revision"],
             validation_status=SnapshotValidationStatus(snapshot_data["validation_status"]),
@@ -469,7 +469,7 @@ def _color(db: Session, data: dict[str, object]) -> Color:
     return color
 
 
-def _set_data(item: LegoSet) -> dict[str, object]:
+def _set_data(item: KlemmbausteinSet) -> dict[str, object]:
     return {"provider": item.provider, "provider_set_id": item.provider_set_id, "name": item.name, "year": item.year, "image_url": item.image_url}
 
 

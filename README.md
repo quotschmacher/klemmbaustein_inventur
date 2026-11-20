@@ -1,10 +1,10 @@
-# LEGO Inventur – Hermes-Agent-Projektpaket
+# Klemmbaustein Inventur – Hermes-Agent-Projektpaket
 
 **Status:** Implementierte, lokal über Docker Compose betriebene Anwendung; Abnahme- und Betriebsnachweise in `IMPLEMENTATION_STATUS.md`.
 
-Ziel: LEGO-Sets auf Vollständigkeit prüfen. Eine zentrale, verifizierte Inventarliste wird in beliebig viele **physische Zählbereiche** (z. B. Haus 1–4, Figuren) aufgeteilt. Die gezählten Mengen werden über alle Bereiche pro **Teilenummer + Farbe** summiert. Die Anwendung erkennt **Fehlmengen, Überschüsse und Fremdteile**. Jedes Haus kann unabhängig gezählt und eingepackt werden, ohne dass eine separate Soll-Liste pro Gebäude existiert.
+Ziel: Klemmbaustein-Sets auf Vollständigkeit prüfen. Eine zentrale, verifizierte Inventarliste wird in beliebig viele **physische Zählbereiche** (z. B. Haus 1–4, Figuren) aufgeteilt. Die gezählten Mengen werden über alle Bereiche pro **Teilenummer + Farbe** summiert. Die Anwendung erkennt **Fehlmengen, Überschüsse und Fremdteile**. Jedes Haus kann unabhängig gezählt und eingepackt werden, ohne dass eine separate Soll-Liste pro Gebäude existiert.
 
-**Startfall:** LEGO 75978-1 (Winkelgasse). **Sprache:** Deutsch. **Browser:** Desktop zuerst. **Datenhaltung:** PostgreSQL; nie nur im Browser. **Betrieb:** Docker Compose. **Entwicklung:** Docker Dev Containers (Python, Node und Tools nur im Container). **Agent:** Hermes Agent mit den Regeln in `AGENTS.md`.
+**Startfall:** Klemmbaustein-Set 75978-1 (Winkelgasse). **Sprache:** Deutsch. **Browser:** Desktop zuerst. **Datenhaltung:** PostgreSQL; nie nur im Browser. **Betrieb:** Docker Compose. **Entwicklung:** Docker Dev Containers (Python, Node und Tools nur im Container). **Agent:** Hermes Agent mit den Regeln in `AGENTS.md`.
 
 ## Einstieg mit Hermes
 
@@ -38,7 +38,7 @@ curl -fsS http://localhost:8080/
 curl -fsS http://localhost:8080/api/health
 ```
 
-`docker compose down` stoppt die Container, erhält jedoch das benannte Volume `lego-inventur_pgdata`. Nie `docker compose down -v` verwenden, wenn Daten erhalten bleiben sollen.
+`docker compose down` stoppt die Container, erhält jedoch das benannte Datenvolume. Nie `docker compose down -v` verwenden, wenn Daten erhalten bleiben sollen.
 
 ## GitHub Container Registry
 
@@ -113,7 +113,7 @@ compose.yaml                Produktions-Zielkonfiguration (erst nach Implementie
 
 ## Lizenz/Compliance
 
-Keine LEGO-/Rebrickable-Bilder oder Daten ohne Beachtung der jeweiligen Bedingungen massenhaft einbinden. Anwendungsname und Design eigenständig; kein LEGO-/BrickTally-Branding kopieren.
+Keine Hersteller-/Rebrickable-Bilder oder Daten ohne Beachtung der jeweiligen Bedingungen massenhaft einbinden. Anwendungsname und Design eigenständig; kein fremdes Marken-/BrickTally-Branding kopieren.
 
 ## Entwicklung in kurzen Hermes-Sitzungen
 

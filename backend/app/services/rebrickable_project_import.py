@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.db.models import (
     InventoryRequirement,
     InventorySnapshot,
-    LegoSet,
+    KlemmbausteinSet,
     MinifigRequirement,
     Project,
     ProjectStatus,
@@ -32,10 +32,10 @@ class RebrickableProjectImporter:
         self._client = client
 
     def import_project(self, session: Session, project: Project) -> tuple[bool, int]:
-        lego_set = session.get(LegoSet, project.set_id)
-        if lego_set is None:
+        klemmbaustein_set = session.get(KlemmbausteinSet, project.set_id)
+        if klemmbaustein_set is None:
             raise CsvImportError("Das Projekt besitzt kein Set.")
-        set_num = canonical_set_num(lego_set.provider_set_id)
+        set_num = canonical_set_num(klemmbaustein_set.provider_set_id)
         cached_snapshot = session.scalar(
             select(InventorySnapshot)
             .where(
@@ -88,9 +88,9 @@ class RebrickableProjectImporter:
                 sort_keys=True,
             ).encode()
         ).hexdigest()
-        lego_set.name = str(detail.get("name") or lego_set.name)
-        lego_set.year = int(detail["year"]) if detail.get("year") is not None else lego_set.year
-        lego_set.image_url = str(detail["set_img_url"]) if detail.get("set_img_url") else lego_set.image_url
+        klemmbaustein_set.name = str(detail.get("name") or klemmbaustein_set.name)
+        klemmbaustein_set.year = int(detail["year"]) if detail.get("year") is not None else klemmbaustein_set.year
+        klemmbaustein_set.image_url = str(detail["set_img_url"]) if detail.get("set_img_url") else klemmbaustein_set.image_url
         imported, requirement_count = import_inventory_rows(
             session,
             project,

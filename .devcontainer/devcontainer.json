@@ -1,5 +1,5 @@
 {
-  "name": "LEGO Inventur Dev (Python + Node + PostgreSQL)",
+  "name": "Klemmbaustein Inventur Dev (Python + Node + PostgreSQL)",
   "dockerComposeFile": ["../compose.dev.yaml"],
   "service": "workspace",
   "runServices": ["db", "workspace"],

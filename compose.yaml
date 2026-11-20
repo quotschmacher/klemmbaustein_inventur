@@ -1,12 +1,12 @@
 # Target production Compose contract. The backend/frontend build contexts are implemented by Hermes in Phase 1.
-name: lego-inventur
+name: klemmbaustein-inventur
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-lego_inventory}
-      POSTGRES_USER: ${POSTGRES_USER:-lego}
+      POSTGRES_DB: ${POSTGRES_DB:-klemmbaustein_inventory}
+      POSTGRES_USER: ${POSTGRES_USER:-klemmbaustein}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -22,7 +22,7 @@ services:
       dockerfile: Dockerfile
     command: ["alembic", "upgrade", "head"]
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-klemmbaustein}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-klemmbaustein_inventory}
     depends_on:
       db:
         condition: service_healthy
@@ -33,7 +33,7 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lego}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-lego_inventory}
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-klemmbaustein}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-klemmbaustein_inventory}
       REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY:-}
     depends_on:
       migrate:
@@ -65,3 +65,4 @@ networks:
     internal: false  # Required so the API can reach Rebrickable over HTTPS.
 volumes:
   pgdata:
+    name: lego-inventur_pgdata

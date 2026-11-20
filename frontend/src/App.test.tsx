@@ -3,10 +3,10 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import App from "./App";
 
-test("zeigt die Startseite der LEGO-Inventur", () => {
+test("zeigt die Startseite der Klemmbaustein-Inventur", () => {
   render(<App />);
 
-  expect(screen.getByRole("heading", { name: "LEGO Inventur" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Klemmbaustein Inventur" })).toBeInTheDocument();
   expect(screen.getByLabelText("Set-Nummer auf dem Karton")).toBeInTheDocument();
   expect(screen.getByLabelText("Set-Nummer auf dem Karton")).toHaveValue("75978");
   expect(screen.getByLabelText("Bereiche (optional, durch Komma getrennt)")).toBeInTheDocument();

@@ -12,6 +12,6 @@ Beispiel:
 
 ```bash
 ./scripts/backup.sh
-./scripts/restore.sh --confirm backups/lego-inventur-20261117T120000Z.dump lego_inventory_restore_test
+./scripts/restore.sh --confirm backups/klemmbaustein-inventur-20261117T120000Z.dump klemmbaustein_inventory_restore_test
 ./scripts/smoke.sh
 ```

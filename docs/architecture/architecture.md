@@ -14,7 +14,7 @@ api: FastAPI + business services / Rebrickable importer
    +-- Rebrickable HTTPS (nur bei Import, serverseitiger Key)
 ```
 
-**Warum diese Wahl?** FastAPI bietet klaren OpenAPI-Vertrag, Python ist praktisch zum Importieren und Validieren von LEGO-Daten; React/TypeScript ermöglicht schnelle filterbare Zähllisten. PostgreSQL gewährleistet atomare Transaktionen/Audit. MySQL wäre möglich, wird aber nicht parallel implementiert.
+**Warum diese Wahl?** FastAPI bietet klaren OpenAPI-Vertrag, Python ist praktisch zum Importieren und Validieren von Klemmbaustein-Daten; React/TypeScript ermöglicht schnelle filterbare Zähllisten. PostgreSQL gewährleistet atomare Transaktionen/Audit. MySQL wäre möglich, wird aber nicht parallel implementiert.
 
 ## Deployment
 

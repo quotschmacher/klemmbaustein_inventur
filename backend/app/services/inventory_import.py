@@ -14,7 +14,7 @@ from app.db.models import (
     InventoryProvenance,
     InventoryRequirement,
     InventorySnapshot,
-    LegoSet,
+    KlemmbausteinSet,
     PartCatalog,
     Project,
     ProjectStatus,
@@ -199,14 +199,14 @@ def import_inventory_rows(
 def create_project(
     session: Session, set_num: str, label: str, session_labels: list[str] | None = None
 ) -> Project:
-    lego_set = session.scalar(
-        select(LegoSet).where(LegoSet.provider == "csv", LegoSet.provider_set_id == set_num)
+    klemmbaustein_set = session.scalar(
+        select(KlemmbausteinSet).where(KlemmbausteinSet.provider == "csv", KlemmbausteinSet.provider_set_id == set_num)
     )
-    if lego_set is None:
-        lego_set = LegoSet(provider="csv", provider_set_id=set_num, name=set_num)
-        session.add(lego_set)
+    if klemmbaustein_set is None:
+        klemmbaustein_set = KlemmbausteinSet(provider="csv", provider_set_id=set_num, name=set_num)
+        session.add(klemmbaustein_set)
         session.flush()
-    project = Project(set_id=lego_set.id, label=label, status=ProjectStatus.PENDING_IMPORT)
+    project = Project(set_id=klemmbaustein_set.id, label=label, status=ProjectStatus.PENDING_IMPORT)
     session.add(project)
     session.flush()
     labels = _session_labels_for_new_project(set_num, session_labels)

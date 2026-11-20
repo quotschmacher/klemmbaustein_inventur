@@ -6,8 +6,8 @@ root_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$root_dir"
 
 tmp_dir=${TMPDIR:-/tmp}
-before="$tmp_dir/lego-inventur-projects-before.json"
-after="$tmp_dir/lego-inventur-projects-after.json"
+before="$tmp_dir/klemmbaustein-inventur-projects-before.json"
+after="$tmp_dir/klemmbaustein-inventur-projects-after.json"
 
 docker compose up -d --build
 curl -fsS http://localhost:8080/ > /dev/null
