@@ -47,6 +47,11 @@ function _sessionLabels(areas: string): string[] | undefined {
   return labels.length > 0 ? labels : undefined;
 }
 
+export function createClientMutationId(): string {
+  return globalThis.crypto?.randomUUID?.()
+    ?? `fallback-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
+
 function App() {
   const [setNumber, setSetNumber] = useState("75978");
   const [label, setLabel] = useState("Winkelgasse");
@@ -385,7 +390,7 @@ function App() {
       const response = await fetch(`/api/v1/sessions/${selectedSessionId}/counts/adjust`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ inventory_item_id: item.id, delta, client_mutation_id: crypto.randomUUID() }),
+        body: JSON.stringify({ inventory_item_id: item.id, delta, client_mutation_id: createClientMutationId() }),
       });
       if (!response.ok) throw new Error();
       await loadCountingData(projectId, selectedSessionId);
@@ -401,7 +406,7 @@ function App() {
       const response = await fetch(`/api/v1/sessions/${selectedSessionId}/counts/${item.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ quantity, expected_revision: item.session_revision, client_mutation_id: crypto.randomUUID() }),
+        body: JSON.stringify({ quantity, expected_revision: item.session_revision, client_mutation_id: createClientMutationId() }),
       });
       if (!response.ok) throw new Error();
       await loadCountingData(projectId, selectedSessionId);
@@ -492,7 +497,7 @@ function App() {
       const response = await fetch(`/api/v1/replacements/${item.id}/book-into-session`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: targetSessionId, quantity: item.qty_received - item.qty_booked, client_mutation_id: crypto.randomUUID() }),
+        body: JSON.stringify({ session_id: targetSessionId, quantity: item.qty_received - item.qty_booked, client_mutation_id: createClientMutationId() }),
       });
       if (!response.ok) throw new Error();
       await loadCountingData(projectId, targetSessionId);

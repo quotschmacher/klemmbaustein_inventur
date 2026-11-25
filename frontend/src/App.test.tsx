@@ -1,7 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 
-import App from "./App";
+import App, { createClientMutationId } from "./App";
+
+test("erstellt auch ohne sichere Browser-API eine Mutations-ID", () => {
+  vi.stubGlobal("crypto", {});
+
+  expect(createClientMutationId()).toMatch(/^fallback-/);
+});
 
 test("zeigt die Startseite der Klemmbaustein-Inventur", () => {
   render(<App />);
