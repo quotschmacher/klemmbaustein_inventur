@@ -3,10 +3,10 @@ import { afterEach, expect, test, vi } from "vitest";
 
 import App, { createClientMutationId } from "./App";
 
-test("erstellt auch ohne sichere Browser-API eine Mutations-ID", () => {
+test("erstellt auch ohne sichere Browser-API eine gültige UUID-v4-Mutations-ID", () => {
   vi.stubGlobal("crypto", {});
 
-  expect(createClientMutationId()).toMatch(/^fallback-/);
+  expect(createClientMutationId()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 });
 
 test("zeigt die Startseite der Klemmbaustein-Inventur", () => {
